@@ -139,6 +139,20 @@ same `PATH` line twice.
 A pack that passes on one architecture and fails on the other fails the check. There is no
 amd64-only pack.
 
+## What CI posts on your pull request
+
+A comment appears saying what your pack **does**: how many steps it runs, how many of them run as
+root, every URL its scripts fetch, and the scripts it introduces in full. It is the same
+derivation a Rocky Surf control plane shows an operator before they consent to install — so you
+see what they will see, before a reviewer does.
+
+It is not a verdict, and it is not a check you can fail. It is there so that "this downloads from
+somewhere I did not expect" gets noticed by you rather than in review, or in review rather than
+by a user.
+
+The URL list carries a caveat, and it is true: the list is read out of your scripts, so one that
+builds a URL from a variable will not appear in it. **The scripts are the ground truth.**
+
 ## Review
 
 A maintainer reads every community pull request before it merges. Expect questions about:

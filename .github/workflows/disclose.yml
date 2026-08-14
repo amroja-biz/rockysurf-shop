@@ -1,0 +1,134 @@
+# Post what a changed pack DOES onto its own pull request (rockysurf-arym.8).
+#
+# WHY. The control plane shows an operator every script a pack runs, plus which steps run as root
+# and every URL those scripts fetch, before they consent to an install (ADR-0006). A maintainer
+# reviewing a community pull request is making a related judgement with worse tooling — a raw
+# YAML diff — and maintainer review is one of the three things the trust model actually leans on.
+# This gives the reviewer what the operator gets, and gives the contributor the same view before
+# review, which is the cheaper place to notice "this fetches from a URL I did not expect".
+#
+# IT IS NOT A VERDICT. `rockysurf pack describe` reports what the scripts say they do; deciding
+# whether that is acceptable is the reader's job. The incompleteness caveat travels inside the
+# rendered output rather than being added here, so it cannot be dropped by this workflow.
+#
+# ONE COMMENT PER PULL REQUEST, updated in place. A new comment per push turns a three-round
+# review into a wall, and the useful artifact is the CURRENT state of the pack rather than its
+# history — which the diff already carries.
+name: disclose
+
+on:
+  pull_request:
+    paths:
+      - 'packs/**'
+
+permissions:
+  contents: read
+  # The only write this workflow wants, and the reason it is a separate file from pack-pr.yml:
+  # that one runs untrusted pack content through a Docker harness and has no business holding a
+  # token that can write to the pull request.
+  pull-requests: write
+
+env:
+  NODE_VERSION: '24'
+  UPSTREAM_REF: 'main'
+  # So an update finds its own previous comment without guessing at wording.
+  MARKER: '<!-- rockysurf-pack-disclosure -->'
+
+jobs:
+  describe:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - id: changed
+        name: Packs this pull request adds or modifies
+        run: |
+          set -euo pipefail
+          mapfile -t files < <(
+            git diff --name-only --diff-filter=d \
+              "origin/${{ github.base_ref }}...HEAD" -- 'packs/*.yaml' 'packs/*.yml'
+          )
+          ids=()
+          for f in "${files[@]:-}"; do
+            [ -n "$f" ] || continue
+            id=$(basename "$f"); id=${id%.*}
+            ids+=("$id")
+          done
+          if [ ${#ids[@]} -eq 0 ]; then
+            echo 'any=false' >> "$GITHUB_OUTPUT"
+            echo 'No pack files changed.'
+          else
+            # `jq -Rnc '[inputs]'` and NOT `jq -Rrc . | jq -sc .` — the latter prints raw, so the
+            # second jq is handed a bare id and dies inside a command substitution, silently. That
+            # is the bug that left the pack matrix never expanding; not repeating it here.
+            echo 'any=true' >> "$GITHUB_OUTPUT"
+            printf 'packs=%s\n' "$(printf '%s\n' "${ids[@]}" | jq -Rnc '[inputs]')" >> "$GITHUB_OUTPUT"
+            printf 'Changed: %s\n' "${ids[*]}"
+          fi
+
+      - if: steps.changed.outputs.any == 'true'
+        id: harness
+        uses: ./.github/actions/pack-harness
+        with:
+          ref: ${{ env.UPSTREAM_REF }}
+          node-version: ${{ env.NODE_VERSION }}
+
+      - if: steps.changed.outputs.any == 'true'
+        id: render
+        name: Describe each changed pack
+        run: |
+          set -euo pipefail
+          {
+            echo "${{ env.MARKER }}"
+            echo '_What these packs do, derived from their scripts by `rockysurf pack describe` —'
+            echo 'the same derivation the control plane shows an operator before they install._'
+            echo ''
+            for id in $(printf '%s' '${{ steps.changed.outputs.packs }}' | jq -r '.[]'); do
+              node "${{ steps.harness.outputs.bin }}" pack describe packs --pack "$id" --markdown
+              echo ''
+              echo '---'
+              echo ''
+            done
+          } > "${RUNNER_TEMP}/disclosure.md"
+
+          # A comment body has a hard limit, and a pack with several long scripts can reach it.
+          # Truncating with a pointer to the run is better than the API rejecting the whole post
+          # and the reviewer getting nothing.
+          if [ "$(wc -c < "${RUNNER_TEMP}/disclosure.md")" -gt 60000 ]; then
+            head -c 60000 "${RUNNER_TEMP}/disclosure.md" > "${RUNNER_TEMP}/trimmed.md"
+            {
+              echo ''
+              echo '---'
+              echo ''
+              echo '**Truncated — this pack is longer than a pull request comment can hold.**'
+              echo 'The scripts are the ground truth; read them in the diff, or run'
+              echo '`rockysurf pack describe packs --pack <id>` locally for the whole thing.'
+            } >> "${RUNNER_TEMP}/trimmed.md"
+            mv "${RUNNER_TEMP}/trimmed.md" "${RUNNER_TEMP}/disclosure.md"
+          fi
+          echo "path=${RUNNER_TEMP}/disclosure.md" >> "$GITHUB_OUTPUT"
+
+      - if: steps.changed.outputs.any == 'true'
+        name: Post or update the one comment
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+          # Find this workflow's own previous comment by its marker rather than by author or
+          # position: a repository may grow other bots, and "the first comment by github-actions"
+          # is a guess that eventually edits somebody else's.
+          existing=$(gh api "repos/${{ github.repository }}/issues/${PR}/comments" --paginate \
+            --jq "[.[] | select(.body | contains(\"${{ env.MARKER }}\"))] | .[0].id // empty")
+
+          if [ -n "$existing" ]; then
+            gh api -X PATCH "repos/${{ github.repository }}/issues/comments/${existing}" \
+              -F body=@"${{ steps.render.outputs.path }}" > /dev/null
+            echo "updated comment $existing"
+          else
+            gh api -X POST "repos/${{ github.repository }}/issues/${PR}/comments" \
+              -F body=@"${{ steps.render.outputs.path }}" > /dev/null
+            echo 'posted a new comment'
+          fi
