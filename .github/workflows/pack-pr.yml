@@ -71,9 +71,22 @@ jobs:
             echo 'packs=[]'  >> "$GITHUB_OUTPUT"
             echo 'No pack files changed.'
           else
-            echo 'any=true' >> "$GITHUB_OUTPUT"
-            printf 'packs=%s\n' "$(printf '%s\n' "${ids[@]}" | jq -Rrc . | jq -sc .)" >> "$GITHUB_OUTPUT"
-            printf 'Changed: %s\n' "${ids[*]}"
+            # `-Rn` with `[inputs]` and NOT `jq -Rrc . | jq -sc .`. The pair looks equivalent and
+            # is not: `-r` makes the first jq print its result RAW, so the second one is handed a
+            # bare `aider` rather than a quoted `"aider"` and dies with "Invalid numeric literal".
+            # The step still exits 0 — the failure is inside a command substitution — so `packs`
+            # was written empty, `fromJSON` got nothing to expand, and the check job was silently
+            # never created while every visible job stayed green.
+            packs=$(printf '%s\n' "${ids[@]}" | jq -Rnc '[inputs]')
+            # Belt and braces, because the failure above was invisible precisely for want of it:
+            # an empty or malformed value here must stop the run, not skip the matrix.
+            case "$packs" in
+              '['*']') ;;
+              *) echo "::error::discover produced no usable pack list: '$packs'"; exit 1 ;;
+            esac
+            echo "any=true" >> "$GITHUB_OUTPUT"
+            echo "packs=$packs" >> "$GITHUB_OUTPUT"
+            printf 'Changed: %s -> %s\n' "${ids[*]}" "$packs"
           fi
 
   # `index.json` is generated on merge, and a hand-edited one describes files it no longer
