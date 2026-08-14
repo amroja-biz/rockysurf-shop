@@ -1,0 +1,88 @@
+# Regenerate `index.json` on every merge to main.
+#
+# THIS IS THE ONLY LISTING A CONTROL PLANE READS. Rocky Surf fetches this document and then
+# fetches the paths it names, over raw.githubusercontent.com — never the GitHub API, whose
+# unauthenticated quota is 60 requests per hour shared across one source IP and would strand any
+# installation behind a corporate NAT.
+#
+# THERE IS NO TRUST LABEL IN IT, deliberately. This registry is community packs only; Rocky
+# Surf's official packs ship inside its release and are never mirrored here. A `tier` field would
+# therefore be a claim about trustworthiness written by the party being trusted, worth no more
+# than the document containing it. An operator's own config says what this registry is to them.
+#
+# The sha256 in each entry pins a pack file to the entry describing it, so a file swapped without
+# a regeneration is refused by the client. It is NOT a signature: whoever can write this file can
+# write both halves. That limit is stated in the README rather than papered over.
+name: index
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'packs/**'
+      - '.github/workflows/index.yml'
+  # So a maintainer can force a regeneration without an empty commit.
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  # Two merges in quick succession would otherwise race to commit the same file and one would
+  # lose — leaving an index that describes the registry as it was one merge ago.
+  group: index
+  cancel-in-progress: false
+
+env:
+  NODE_VERSION: '24'
+  ROCKYSURF_VERSION: '0.1.0'
+  UPSTREAM_REF: 'main'
+
+jobs:
+  regenerate:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      # The base toolchain is not in this repository — it ships with Rocky Surf — so the packs
+      # here reference tool ids that only resolve against a checkout of it. Nothing from that
+      # clone is committed; it is an input to the generator, never an artifact.
+      - name: Fetch the base toolchain Rocky Surf ships
+        run: |
+          git clone --depth 1 --branch "${{ env.UPSTREAM_REF }}" \
+            https://github.com/amroja-biz/rockysurf.git /tmp/rockysurf
+
+      # The generator refuses a registry it cannot load, so this doubles as the last check that
+      # main is coherent. A broken index is worse than a stale one: every client sees it.
+      - name: Generate
+        run: |
+          npx --yes rockysurf@${{ env.ROCKYSURF_VERSION }} pack index \
+            --source packs \
+            --base-packs /tmp/rockysurf/packs \
+            --out index.json
+
+      - name: Commit if it changed
+        run: |
+          set -euo pipefail
+          # `generatedAt` moves on every run, so a bare `git diff --quiet` would commit on every
+          # push regardless. Compare everything EXCEPT that field, and let the timestamp ride
+          # along only when something real changed.
+          if git diff --quiet -- index.json; then
+            echo 'index.json unchanged'
+            exit 0
+          fi
+          before=$(git show HEAD:index.json 2>/dev/null | jq -S 'del(.generatedAt)' || echo 'null')
+          after=$(jq -S 'del(.generatedAt)' index.json)
+          if [ "$before" = "$after" ]; then
+            echo 'only generatedAt moved — nothing to commit'
+            git checkout -- index.json
+            exit 0
+          fi
+          git config user.name  'rockysurf-shop[bot]'
+          git config user.email 'rockysurf-shop@users.noreply.github.com'
+          git add index.json
+          git commit -m 'index: regenerate from packs/'
+          git push

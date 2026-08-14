@@ -1,0 +1,6 @@
+# index.json is written by this repository's index workflow on every merge. It is not a place to
+# send a pull request — the `closed-paths` job in .github/workflows/pack-pr.yml refuses one, and
+# this is the second half of that rule, so a maintainer with push access is also asked before it
+# changes.
+/index.json @jbdamask
+/.github/   @jbdamask
