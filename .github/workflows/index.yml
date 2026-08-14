@@ -58,18 +58,22 @@ jobs:
       - name: Commit if it changed
         run: |
           set -euo pipefail
-          # `generatedAt` moves on every run, so a bare `git diff --quiet` would commit on every
-          # push regardless. Compare everything EXCEPT that field, and let the timestamp ride
-          # along only when something real changed.
-          if git diff --quiet -- index.json; then
-            echo 'index.json unchanged'
-            exit 0
-          fi
-          before=$(git show HEAD:index.json 2>/dev/null | jq -S 'del(.generatedAt)' || echo 'null')
+          # COMPARE CONTENT, NOT `git diff`, and this is the whole bug that shipped.
+          #
+          # The first version opened with `git diff --quiet -- index.json` and exited early when
+          # it was quiet. It was always quiet on the run that mattered: git diff says nothing
+          # about an UNTRACKED file, and index.json did not exist in the repository yet. So the
+          # very run that should have created it printed "index.json unchanged" and exited 0.
+          # This workflow reported success twice while the registry published nothing, and a
+          # merged pack that never reaches the index is invisible to every control plane.
+          #
+          # So: read what is committed (a marker when there is nothing), read what was just
+          # generated, and compare them with `generatedAt` removed — that field moves on every
+          # run and would otherwise commit a no-op on every push.
+          before=$(git show HEAD:index.json 2>/dev/null | jq -S 'del(.generatedAt)' || echo 'absent')
           after=$(jq -S 'del(.generatedAt)' index.json)
           if [ "$before" = "$after" ]; then
-            echo 'only generatedAt moved — nothing to commit'
-            git checkout -- index.json
+            echo 'index.json unchanged apart from generatedAt — nothing to commit'
             exit 0
           fi
           git config user.name  'rockysurf-shop[bot]'
@@ -77,3 +81,26 @@ jobs:
           git add index.json
           git commit -m 'index: regenerate from packs/'
           git push
+          echo "published $(jq -r '.packs | length' index.json) pack(s) to index.json"
+
+      # The check whose absence let the above ship broken. A workflow that reports success while
+      # the thing it exists to publish is missing is worse than one that fails: nothing
+      # downstream can tell the difference, and the registry just looks empty.
+      #
+      # It runs on every push, not only when something changed, because "the index is present and
+      # describes the packs" is a claim worth re-checking even on a no-op run.
+      - name: The index is actually published
+        run: |
+          set -euo pipefail
+          committed=$(git show HEAD:index.json 2>/dev/null || true)
+          if [ -z "$committed" ]; then
+            echo '::error::index.json is not committed on this branch, so the registry publishes nothing.'
+            exit 1
+          fi
+          listed=$(printf '%s' "$committed" | jq '.packs | length')
+          present=$(find packs -name '*.yaml' -o -name '*.yml' | wc -l | tr -d ' ')
+          echo "index.json lists $listed pack(s); packs/ holds $present file(s)"
+          if [ "$listed" != "$present" ]; then
+            echo "::error::the published index describes $listed pack(s) but packs/ holds $present"
+            exit 1
+          fi
