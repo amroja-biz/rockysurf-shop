@@ -63,24 +63,69 @@ in place today.
 
 ## Contributing a pack
 
-Read [CONTRIBUTING.md](CONTRIBUTING.md). The short version:
+Read [CONTRIBUTING.md](CONTRIBUTING.md). The short version, and the thing worth knowing first:
+
+### Your pack defines its own tools
+
+**A pack can install anything.** You are not picking from a list, and nothing has to be added to
+Rocky Surf first. A tool is just an id, a description, and a shell script you wrote — declare it
+in your own file and it exists:
+
+```yaml
+version: 1
+pack:
+  packId: deepseek-cli
+  name: DeepSeek CLI
+  tools: [deepseek-cli]
+  displayOrder: 90
+  enabled: true
+tools:
+  - toolId: deepseek-cli          # a name nothing in Rocky Surf has ever heard of
+    name: DeepSeek CLI
+    description: The DeepSeek coding agent
+    category: agent
+    url: https://example.com/deepseek
+    installScript: |
+      set -euo pipefail
+      curl -fsSL "https://example.com/deepseek/install.sh" | sh
+      deepseek --version
+    enabled: true
+    installOrder: 40
+    bootstrap: false
+    runAs: root
+```
+
+That pack passes every check in this repository with no involvement from a Rocky Surf maintainer,
+and there is a test in the main repository that proves it. New tools are the normal case — this
+registry exists so that the set of installable software is not gated on anyone's release cycle.
+
+### Reusing the plumbing, if you want it
+
+The one thing you should *not* redeclare is the shared plumbing every box already installs:
+`curl`, `git`, `gh`, `nodejs`, `tmux`, `build-essential` and friends. Those ship with Rocky Surf,
+and you reference them by id instead of copy-pasting their scripts into your file:
+
+```yaml
+  tools: [curl, git, deepseek-cli]   # two borrowed, one your own
+```
+
+The checks refuse a pack that *redefines* one of those ids — not to restrict you, but because a
+reviewer reading your pull request should never have to work out whether your `curl` is the real
+one. Want it to behave differently? Give it your own id.
 
 ```bash
 git clone https://github.com/amroja-biz/rockysurf-shop && cd rockysurf-shop
 $EDITOR packs/my-pack.yaml                 # filename must match the packId
 
-# the base toolchain is not in this repository — it ships with Rocky Surf
+# the shared plumbing ships with Rocky Surf, so the checks need a copy of it to resolve against
 git clone --depth 1 https://github.com/amroja-biz/rockysurf /tmp/rockysurf
 
 npx rockysurf pack lint  packs --base-packs /tmp/rockysurf/packs
 npx rockysurf pack check packs --base-packs /tmp/rockysurf/packs --pack my-pack
 ```
 
-`--base-packs` is not optional and not a formality. Your pack is expected to *reference* the
-shared base toolchain — `curl`, `git`, `gh`, `nodejs`, `tmux`, `build-essential` and the rest —
-by tool id rather than redefine it, and those definitions live in the Rocky Surf repository
-because that is where official packs live. Without pointing the checks at them, every tool you
-correctly did not redefine is reported as unknown.
+`--base-packs` matters only if your pack borrows those shared ids: it is what lets the checks find
+their definitions. A pack that defines everything it installs needs it for nothing.
 
 The authoring contract itself is
 [`docs/writing-a-pack.md`](https://github.com/amroja-biz/rockysurf/blob/main/docs/writing-a-pack.md)

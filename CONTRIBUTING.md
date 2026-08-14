@@ -19,18 +19,66 @@ packs/rust-dev.yaml     →  pack.packId must be "rust-dev"
 Do not edit `index.json`. It is regenerated on every merge; an edit to it will be overwritten,
 and until it is, it will describe files that do not match it.
 
-## Reference the base toolchain; do not redefine it
+## Your pack defines its own tools
 
-Rocky Surf's own `packs/ai-coding-agents.yaml` — in the
-[main repository](https://github.com/amroja-biz/rockysurf/tree/main/packs), not here — defines
-the shared base tools: `build-essential`, `curl`, `git`, `gh`, `tmux`, `unzip`, `nodejs`, the
-Python bits, and so on. List their **ids** in your `pack.tools`; do not copy their definitions
-into your file.
+Start here, because it is the thing people get backwards on first contact.
 
-This is not a style preference. A `toolId` defined twice is rejected outright, and because a
-control plane loads its whole catalog together, a pack that redefines `git` does not merely fail
-for itself — it can break the catalog for anyone who has both installed. The checks below catch
-it.
+**A pack can install anything.** There is no list to pick from and no registry of approved
+software. A tool is an id you choose, a description, and a shell script you wrote — declare it in
+your own file and it exists. Nothing needs adding to Rocky Surf first, and no maintainer here has
+to know what it is.
+
+```yaml
+version: 1
+pack:
+  packId: deepseek-cli
+  name: DeepSeek CLI
+  tools: [deepseek-cli]
+  displayOrder: 90
+  enabled: true
+tools:
+  - toolId: deepseek-cli          # a name nothing in Rocky Surf has ever heard of
+    name: DeepSeek CLI
+    description: The DeepSeek coding agent
+    category: agent
+    url: https://example.com/deepseek
+    installScript: |
+      set -euo pipefail
+      curl -fsSL "https://example.com/deepseek/install.sh" | sh
+      deepseek --version
+    enabled: true
+    installOrder: 40
+    bootstrap: false
+    runAs: root
+```
+
+That file passes `pack lint` and `pack check` exactly as written. The main repository has a test
+whose entire job is to prove it — a pack defining a tool id nothing has ever seen, linting clean
+and installing twice in a container, with no core involvement at any point.
+
+Brand-new tools are the **normal case**. This registry exists so that what you can install on a
+box is not gated on somebody else's release cycle.
+
+## Reusing the shared plumbing, if your pack wants it
+
+The one category you should not redeclare is the plumbing every box already installs:
+`build-essential`, `curl`, `git`, `gh`, `tmux`, `unzip`, `nodejs`, the Python bits. Those are
+defined in Rocky Surf's own `packs/ai-coding-agents.yaml` — in the
+[main repository](https://github.com/amroja-biz/rockysurf/tree/main/packs), not here — and you
+reference them by **id** rather than copying their scripts into your file:
+
+```yaml
+  tools: [curl, git, deepseek-cli]   # two borrowed, one your own
+```
+
+Redefining one of those ids is refused, and the reason is about review rather than restriction: a
+maintainer reading your pull request should never have to work out whether your `curl` is the
+real one. There is a mechanical reason too — a control plane loads its whole catalog together, so
+a pack that redefines `git` does not merely fail for itself, it can break the catalog for anyone
+who has both installed.
+
+If you need one of those tools to behave differently, give it your own id and define it. That is
+allowed, and it is honest about what it is.
 
 ## Run the checks before you open the pull request
 
@@ -48,9 +96,10 @@ npx rockysurf pack check packs --base-packs /tmp/rockysurf/packs --pack my-pack 
 npx rockysurf pack check packs --base-packs /tmp/rockysurf/packs --pack my-pack --arch amd64
 ```
 
-`--base-packs` is how your references to the base toolchain resolve. Without it every one of them
-is reported as an unknown tool. Nothing from that checkout is copied into this repository — it is
-an input to the check, never an artifact.
+`--base-packs` matters only if your pack borrows the shared ids above: it is what lets the checks
+find their definitions. A pack that defines everything it installs does not need it for anything.
+Nothing from that checkout is copied into this repository — it is an input to the check, never an
+artifact.
 
 Exit codes, if you are scripting this: **0** clean, **1** your pack failed the check, **2** the
 check could not be run at all (no Docker, wrong directory, a `--pack` id matching nothing).
