@@ -89,24 +89,18 @@ jobs:
             printf 'Changed: %s -> %s\n' "${ids[*]}" "$packs"
           fi
 
-  # `index.json` is generated on merge, and a hand-edited one describes files it no longer
-  # matches. Branch protection cannot express "this file is closed to pull requests", so the rule
-  # lives here.
-  closed-paths:
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - name: Pull requests may not write index.json
-        run: |
-          set -euo pipefail
-          if git diff --name-only "origin/${{ github.base_ref }}...HEAD" -- index.json | grep -q .; then
-            echo '::error::index.json is regenerated on every merge. An edit to it will be'
-            echo '::error::overwritten, and until then it disagrees with the packs it describes.'
-            exit 1
-          fi
-          echo 'ok — index.json untouched'
+  # THERE IS NO LONGER A CLOSED-PATHS JOB, and its removal is deliberate rather than an
+  # oversight, so it is recorded here instead.
+  #
+  # It refused any pull request that touched `index.json`, on the reasoning that the file is
+  # generated on merge and a hand-edited one describes packs it no longer matches. That rule and
+  # the "committed index matches the packs" check below cannot both hold: one forbids a
+  # contributor from carrying their index update, the other requires it.
+  #
+  # The drift check is strictly the better of the two. `closed-paths` refused the legitimate case
+  # (an index that matches) and the illegitimate one (an index that does not) alike, because a
+  # path-based rule cannot tell them apart. Comparing content can, and does. What it protects is
+  # the same thing, arrived at by looking rather than by prohibiting.
 
   # The whole registry, statically. Cheap enough to run every time, and it is the check that
   # catches the failures affecting OTHER packs — a duplicate toolId, a dangling reference — which
@@ -128,11 +122,34 @@ jobs:
       - name: Lint every pack
         run: node "${{ steps.harness.outputs.bin }}" pack lint packs --allow-empty
 
-      # The index is generated on merge. Regenerating it here proves the pull request leaves the
-      # registry in a state that CAN be indexed — a duplicate packId across files, for instance,
-      # is invisible to the lint above and fatal to the merge job.
-      - name: The registry can be indexed
-        run: node "${{ steps.harness.outputs.bin }}" pack index --source packs > /dev/null
+      # THE PULL REQUEST CARRIES ITS OWN INDEX UPDATE, rather than leaving main stale between
+      # workflow runs. Regenerating here also proves the registry can be indexed at all — a
+      # duplicate packId across files is invisible to the lint above and fatal on merge.
+      #
+      # `generatedAt` is removed before comparing, because it moves on every run and is not part
+      # of what a contributor is being asked to keep in step.
+      - name: The committed index matches the packs
+        run: |
+          set -euo pipefail
+          node "${{ steps.harness.outputs.bin }}" pack index --source packs --out /tmp/index.expected.json
+
+          # An index that does not exist yet is a different message from one that is stale, and a
+          # contributor who gets "run this command" rather than "your file is wrong" fixes it in
+          # one step. The empty-registry case reaches here too: `pack index` on an empty packs/
+          # emits a valid document with zero packs, so there is always something to compare —
+          # which is why this needs no --allow-empty of its own, unlike the lint above.
+          if [ ! -f index.json ]; then
+            echo '::error::index.json is missing. Run: npx rockysurf pack index --source packs --out index.json'
+            exit 1
+          fi
+
+          if ! diff -u <(jq -S 'del(.generatedAt)' index.json) <(jq -S 'del(.generatedAt)' /tmp/index.expected.json); then
+            echo ''
+            echo '::error::index.json does not match packs/. Regenerate and commit it:'
+            echo '::error::  npx rockysurf pack index --source packs --out index.json'
+            exit 1
+          fi
+          echo "index.json matches packs/ ($(jq '.packs | length' index.json) pack(s))"
 
   check:
     needs: discover
