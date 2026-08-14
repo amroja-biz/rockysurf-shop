@@ -1,18 +1,20 @@
 # Every pull request, gated by the same checks Rocky Surf gates its own packs with.
 #
-# WHY `npx rockysurf@<pinned>` AND NOT A VENDORED SCRIPT. The four author rules and the smoke
-# harness live in the `rockysurf` CLI (amroja-biz/rockysurf, rockysurf-arym.2). Copying them here
-# would produce a gate that agrees with the contract on the day it is copied and drifts
+# WHY THE HARNESS COMES FROM UPSTREAM AND NOT A VENDORED SCRIPT. The four author rules and the
+# smoke harness live in the `rockysurf` CLI (amroja-biz/rockysurf, rockysurf-arym.2). Copying them
+# here would produce a gate that agrees with the contract on the day it is copied and drifts
 # afterwards — and it would drift in the worst direction, accepting packs the control plane
-# rejects. So this repository runs the published commands and pins a version, which is also what
-# makes a check reproducible six months from now.
+# rejects.
 #
-# WHY THE MAIN REPOSITORY IS CHECKED OUT. This registry is community packs only: Rocky Surf's own
-# packs ship inside its release and are not mirrored here. But a community pack is expected to
-# REFERENCE the shared base toolchain — `curl`, `git`, `nodejs`, `claude-code` and the rest —
-# rather than redefine it, and those definitions live over there. `--base-packs` points the checks
-# at a shallow clone of them. Nothing from that clone is committed: it is an input to the check,
-# never an artifact, which is what keeps "no mirror" true.
+# WHY IT IS BUILT RATHER THAN INSTALLED. `rockysurf` is not on npm yet; the publish is gated
+# behind v0.1.0. So `.github/actions/pack-harness` builds it from a shallow clone. That is the
+# PRE-RELEASE FORM and it has an expiry date — when v0.1.0 publishes it becomes one `npx` line,
+# tracked as `rockysurf-arym.7`. It is a composite action so that swap is one file.
+#
+# Nothing needs `--base-packs`: a built harness carries the packs its own release ships
+# (`rockysurf-io02`), so the shared base toolchain a community pack references — `curl`, `git`,
+# `nodejs` and the rest — resolves out of the binary. Nothing from the clone is committed here,
+# which is what keeps "no mirror" true.
 #
 # WHAT THIS DOES NOT DO. It does not decide whether a pack is safe. An installScript is arbitrary
 # root-privileged shell; lint proves the file is well-formed and check proves it survives a
@@ -30,11 +32,8 @@ permissions:
 
 env:
   NODE_VERSION: '24'
-  # Pinned deliberately. `@latest` would mean a gate that changes under a pull request without
-  # anyone deciding it should, and a red run nobody can reproduce. Bump it on purpose.
-  ROCKYSURF_VERSION: '0.1.0'
-  # The base toolchain's home. A tag rather than a branch would be better once one exists; until
-  # then the checks track what Rocky Surf currently ships, which is what an operator will have.
+  # What the harness is built from. A release tag would be better once one exists; until then the
+  # checks track what Rocky Surf currently ships, which is what an operator will have.
   UPSTREAM_REF: 'main'
 
 jobs:
@@ -103,31 +102,24 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - id: harness
+        uses: ./.github/actions/pack-harness
         with:
+          ref: ${{ env.UPSTREAM_REF }}
           node-version: ${{ env.NODE_VERSION }}
-
-      - name: Fetch the base toolchain Rocky Surf ships
-        run: |
-          git clone --depth 1 --branch "${{ env.UPSTREAM_REF }}" \
-            https://github.com/amroja-biz/rockysurf.git /tmp/rockysurf
 
       # `--allow-empty` because this registry is legitimately empty until its first contribution
       # merges, and a repository whose CI is red on the day it is created teaches everyone to
       # ignore the tick. The flag is not the default: for a pack author running the command by
       # hand, an empty result means a mistyped path.
       - name: Lint every pack
-        run: |
-          npx --yes rockysurf@${{ env.ROCKYSURF_VERSION }} pack lint \
-            packs --base-packs /tmp/rockysurf/packs --allow-empty
+        run: node "${{ steps.harness.outputs.bin }}" pack lint packs --allow-empty
 
       # The index is generated on merge. Regenerating it here proves the pull request leaves the
       # registry in a state that CAN be indexed — a duplicate packId across files, for instance,
       # is invisible to the lint above and fatal to the merge job.
       - name: The registry can be indexed
-        run: |
-          npx --yes rockysurf@${{ env.ROCKYSURF_VERSION }} pack index \
-            --source packs --base-packs /tmp/rockysurf/packs > /dev/null
+        run: node "${{ steps.harness.outputs.bin }}" pack index --source packs > /dev/null
 
   check:
     needs: discover
@@ -153,19 +145,15 @@ jobs:
             runner: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - id: harness
+        uses: ./.github/actions/pack-harness
         with:
+          ref: ${{ env.UPSTREAM_REF }}
           node-version: ${{ env.NODE_VERSION }}
-
-      - name: Fetch the base toolchain Rocky Surf ships
-        run: |
-          git clone --depth 1 --branch "${{ env.UPSTREAM_REF }}" \
-            https://github.com/amroja-biz/rockysurf.git /tmp/rockysurf
 
       - name: Two runs, one container, resume journal discarded between them
         run: |
-          npx --yes rockysurf@${{ env.ROCKYSURF_VERSION }} pack check \
+          node "${{ steps.harness.outputs.bin }}" pack check \
             packs \
-            --base-packs /tmp/rockysurf/packs \
             --pack ${{ matrix.pack }} \
             --arch ${{ matrix.arch }}

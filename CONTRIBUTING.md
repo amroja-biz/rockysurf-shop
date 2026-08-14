@@ -86,20 +86,29 @@ Both come from the published `rockysurf` package, so what you run locally is wha
 need a checkout of the main repository, because that is where the base toolchain lives:
 
 ```bash
+# Until Rocky Surf v0.1.0 is on npm, build the harness from source once:
 git clone --depth 1 https://github.com/amroja-biz/rockysurf /tmp/rockysurf
+(cd /tmp/rockysurf && pnpm install && pnpm --filter 'rockysurf...' build)
+rs() { node /tmp/rockysurf/packages/rockysurf/dist/bin.js "$@"; }
 
 # static — a second, no Docker. Run it constantly.
-npx rockysurf pack lint packs --base-packs /tmp/rockysurf/packs
+rs pack lint packs
 
 # behavioural — a few minutes, needs Docker. Run it before you open the PR.
-npx rockysurf pack check packs --base-packs /tmp/rockysurf/packs --pack my-pack --arch arm64
-npx rockysurf pack check packs --base-packs /tmp/rockysurf/packs --pack my-pack --arch amd64
+rs pack check packs --pack my-pack --arch arm64
+rs pack check packs --pack my-pack --arch amd64
 ```
 
-`--base-packs` matters only if your pack borrows the shared ids above: it is what lets the checks
-find their definitions. A pack that defines everything it installs does not need it for anything.
-Nothing from that checkout is copied into this repository — it is an input to the check, never an
-artifact.
+**Why you are building it.** Rocky Surf has not published to npm yet — the release is gated
+behind v0.1.0 — so `npx rockysurf` fetches a placeholder with no `pack` command rather than the
+harness. This is the pre-release form and it has an expiry date: once v0.1.0 ships, every command
+above becomes `npx rockysurf@<version> pack …` and the clone disappears. CI does exactly the same
+thing today, in `.github/actions/pack-harness`.
+
+**There is no `--base-packs` here.** A built harness carries the packs its own release ships, so
+the shared plumbing your pack references resolves out of the binary. The flag exists for pointing
+the checks at a *different* toolchain, which is not the normal case. Nothing from that clone is
+copied into this repository — it is an input to the check, never an artifact.
 
 Exit codes, if you are scripting this: **0** clean, **1** your pack failed the check, **2** the
 check could not be run at all (no Docker, wrong directory, a `--pack` id matching nothing).

@@ -117,15 +117,22 @@ one. Want it to behave differently? Give it your own id.
 git clone https://github.com/amroja-biz/rockysurf-shop && cd rockysurf-shop
 $EDITOR packs/my-pack.yaml                 # filename must match the packId
 
-# the shared plumbing ships with Rocky Surf, so the checks need a copy of it to resolve against
+# Until Rocky Surf v0.1.0 is on npm, build the harness from source once:
 git clone --depth 1 https://github.com/amroja-biz/rockysurf /tmp/rockysurf
+(cd /tmp/rockysurf && pnpm install && pnpm --filter 'rockysurf...' build)
+rs() { node /tmp/rockysurf/packages/rockysurf/dist/bin.js "$@"; }
 
-npx rockysurf pack lint  packs --base-packs /tmp/rockysurf/packs
-npx rockysurf pack check packs --base-packs /tmp/rockysurf/packs --pack my-pack
+rs pack lint  packs
+rs pack check packs --pack my-pack
 ```
 
-`--base-packs` matters only if your pack borrows those shared ids: it is what lets the checks find
-their definitions. A pack that defines everything it installs needs it for nothing.
+**The build step is temporary and it is not you.** Rocky Surf has not published to npm yet, so
+`npx rockysurf` does not get you the harness — it gets a placeholder with no `pack` command.
+Once v0.1.0 ships, these become `npx rockysurf@<version> pack …` and the clone goes away.
+
+You will notice there is no `--base-packs` flag. A built harness carries the packs its own
+release ships, so the shared plumbing your pack references resolves out of the binary itself.
+The flag exists for pointing the checks at some *other* toolchain, which is not the normal case.
 
 The authoring contract itself is
 [`docs/writing-a-pack.md`](https://github.com/amroja-biz/rockysurf/blob/main/docs/writing-a-pack.md)

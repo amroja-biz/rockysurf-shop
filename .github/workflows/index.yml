@@ -35,7 +35,8 @@ concurrency:
 
 env:
   NODE_VERSION: '24'
-  ROCKYSURF_VERSION: '0.1.0'
+  # What the harness is built from. See .github/actions/pack-harness for why it is built rather
+  # than installed, and for the one-line form this becomes once v0.1.0 is on npm.
   UPSTREAM_REF: 'main'
 
 jobs:
@@ -43,26 +44,16 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - id: harness
+        uses: ./.github/actions/pack-harness
         with:
+          ref: ${{ env.UPSTREAM_REF }}
           node-version: ${{ env.NODE_VERSION }}
-
-      # The base toolchain is not in this repository — it ships with Rocky Surf — so the packs
-      # here reference tool ids that only resolve against a checkout of it. Nothing from that
-      # clone is committed; it is an input to the generator, never an artifact.
-      - name: Fetch the base toolchain Rocky Surf ships
-        run: |
-          git clone --depth 1 --branch "${{ env.UPSTREAM_REF }}" \
-            https://github.com/amroja-biz/rockysurf.git /tmp/rockysurf
 
       # The generator refuses a registry it cannot load, so this doubles as the last check that
       # main is coherent. A broken index is worse than a stale one: every client sees it.
       - name: Generate
-        run: |
-          npx --yes rockysurf@${{ env.ROCKYSURF_VERSION }} pack index \
-            --source packs \
-            --base-packs /tmp/rockysurf/packs \
-            --out index.json
+        run: node "${{ steps.harness.outputs.bin }}" pack index --source packs --out index.json
 
       - name: Commit if it changed
         run: |

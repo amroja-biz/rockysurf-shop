@@ -8,15 +8,18 @@ Run these locally before opening the pull request — CI runs the same commands,
 takes a few minutes per architecture.
 
 ```bash
+# Until Rocky Surf v0.1.0 is on npm, build the harness from source once:
 git clone --depth 1 https://github.com/amroja-biz/rockysurf /tmp/rockysurf
+(cd /tmp/rockysurf && pnpm install && pnpm --filter 'rockysurf...' build)
+rs() { node /tmp/rockysurf/packages/rockysurf/dist/bin.js "$@"; }
 
-npx rockysurf pack lint  packs --base-packs /tmp/rockysurf/packs
-npx rockysurf pack check packs --base-packs /tmp/rockysurf/packs --pack <your-pack-id> --arch arm64
-npx rockysurf pack check packs --base-packs /tmp/rockysurf/packs --pack <your-pack-id> --arch amd64
+rs pack lint  packs
+rs pack check packs --pack <your-pack-id> --arch arm64
+rs pack check packs --pack <your-pack-id> --arch amd64
 ```
 
-The `--base-packs` clone is where the shared base toolchain lives; it ships with Rocky Surf and is
-not in this repository.
+The build step is temporary: Rocky Surf is not on npm until v0.1.0, so `npx rockysurf` fetches a
+placeholder rather than the harness. CI builds it the same way. See CONTRIBUTING.md.
 
 - [ ] One file in `packs/`, named for its `packId`.
 - [ ] `pack lint` is clean.
