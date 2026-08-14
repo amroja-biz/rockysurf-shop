@@ -1,0 +1,73 @@
+# Build the Rocky Surf pack harness from source, and hand back the path to its binary.
+#
+# THIS IS THE PRE-RELEASE FORM, and it exists for one reason: `rockysurf` is not on npm yet.
+# The publish is gated behind the v0.1.0 release, so `npx rockysurf@0.1.0` is a 404 today and
+# bare `npx rockysurf` resolves to a two-file placeholder with no `pack` command at all — which
+# would fail in a way that looks like a broken pack rather than a missing package.
+#
+# So CI builds the harness from a shallow clone of the upstream repository. That is slower than
+# an npx and it is honest about what it is: a stopgap with an expiry date. When v0.1.0 publishes,
+# this whole action collapses into one line — `npx --yes rockysurf@<version> pack …` — and
+# `rockysurf-arym.7` tracks that swap. It is a composite action rather than a copied block in
+# each workflow precisely so that swap is one file and cannot half-happen.
+#
+# NOTHING NEEDS `--base-packs`. A built harness carries the packs its own release ships
+# (`rockysurf-io02`), so the shared base toolchain a community pack references — `curl`, `git`,
+# `nodejs` and the rest — resolves out of the binary itself. Before io02 this action would also
+# have had to hand the caller a directory to point that flag at.
+#
+# PNPM COMES FROM COREPACK, NOT FROM `pnpm/action-setup`. That action reads `packageManager` from
+# a `package.json` it resolves against the WORKSPACE, and the manifest that declares it here is
+# in a clone under `RUNNER_TEMP` — so it reported "No pnpm version is specified" and skipped
+# everything after it. Corepack reads the field from whichever directory the command runs in,
+# which is the directory that declares it, so the version is upstream's own and there is nothing
+# to keep in step.
+name: Pack harness
+description: Build the rockysurf pack harness from upstream source and output the path to its binary
+
+inputs:
+  ref:
+    description: The upstream ref to build from
+    required: false
+    default: main
+  node-version:
+    description: Node to build with. Rocky Surf's engines field requires 24 or newer.
+    required: false
+    default: '24'
+
+outputs:
+  bin:
+    description: Path to the built rockysurf binary, to be run with node
+    value: ${{ steps.build.outputs.bin }}
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@v4
+      with:
+        node-version: ${{ inputs.node-version }}
+
+    - name: Fetch the upstream repository
+      shell: bash
+      run: |
+        git clone --depth 1 --branch "${{ inputs.ref }}" \
+          https://github.com/amroja-biz/rockysurf.git "${RUNNER_TEMP}/rockysurf"
+
+    - name: Build it
+      id: build
+      shell: bash
+      run: |
+        set -euo pipefail
+        cd "${RUNNER_TEMP}/rockysurf"
+        corepack enable
+        pnpm install --frozen-lockfile
+        # `rockysurf...` and not `@rockysurf/core...`: the harness lives in the CLI package, and
+        # the `...` builds its workspace dependencies first — a filter that names one package
+        # compiles it against siblings that were never built.
+        pnpm --filter 'rockysurf...' build
+        bin="${RUNNER_TEMP}/rockysurf/packages/rockysurf/dist/bin.js"
+        # Fail here, loudly, rather than letting the caller's first pack command die with an
+        # unhelpful "cannot find module" three steps later.
+        test -f "$bin" || { echo "::error::harness did not build: $bin is missing"; exit 1; }
+        echo "bin=$bin" >> "$GITHUB_OUTPUT"
+        node "$bin" --version
