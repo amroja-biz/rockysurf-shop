@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "generatedAt": "2026-08-14T15:02:55.330Z",
+  "packs": [
+    {
+      "packId": "aider",
+      "name": "Aider",
+      "description": "Installs 10 tool(s): build-essential, curl, gh, git, tmux, unzip, python3-pip, python3-venv, pipx, aider",
+      "path": "packs/aider.yaml",
+      "sha256": "e2050c91139ef70dd43186f142fa0bd2122f833f8bbcb34d6f1ed3a72ca61931",
+      "definesTools": [
+        "aider"
+      ],
+      "referencesTools": [
+        "build-essential",
+        "curl",
+        "gh",
+        "git",
+        "pipx",
+        "python3-pip",
+        "python3-venv",
+        "tmux",
+        "unzip"
+      ],
+      "requiresRepos": true,
+      "requiresRdp": false
+    }
+  ]
+}
