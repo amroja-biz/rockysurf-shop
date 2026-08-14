@@ -16,8 +16,15 @@ One pack, one file, in `packs/`, named for its `packId`:
 packs/rust-dev.yaml     →  pack.packId must be "rust-dev"
 ```
 
-Do not edit `index.json`. It is regenerated on every merge; an edit to it will be overwritten,
-and until it is, it will describe files that do not match it.
+**Regenerate `index.json` and commit it with your pack.** It is the listing every Rocky Surf
+control plane reads, and a pack that is not in it reaches nobody:
+
+```bash
+npx rockysurf pack index --source packs --out index.json
+```
+
+CI checks that the committed index matches `packs/` and tells you this command if it does not.
+Do not hand-edit it — regenerate it, or it will describe files it no longer matches.
 
 ## Your pack defines its own tools
 

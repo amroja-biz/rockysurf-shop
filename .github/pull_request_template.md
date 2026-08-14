@@ -22,6 +22,9 @@ The build step is temporary: Rocky Surf is not on npm until v0.1.0, so `npx rock
 placeholder rather than the harness. CI builds it the same way. See CONTRIBUTING.md.
 
 - [ ] One file in `packs/`, named for its `packId`.
+- [ ] `index.json` regenerated and committed — `rs pack index --source packs --out index.json`.
+      It is the listing every control plane reads; a pack missing from it reaches nobody, and CI
+      checks the two agree.
 - [ ] `pack lint` is clean.
 - [ ] `pack check` passes on **both** `amd64` and `arm64`.
 - [ ] Base tools are referenced by id, not redefined (see Rocky Surf's `packs/ai-coding-agents.yaml`).
