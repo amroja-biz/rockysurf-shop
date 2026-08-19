@@ -104,7 +104,18 @@ rs pack lint packs
 # behavioural — a few minutes, needs Docker. Run it before you open the PR.
 rs pack check packs --pack my-pack --arch arm64
 rs pack check packs --pack my-pack --arch amd64
+
+# the index — instant, and the one people forget. Run it after EVERY edit to a pack file.
+rs pack index --source packs --out index.json
 ```
+
+**`pack index` is not optional, and it is the easy one to miss.** `index.json` records a
+`sha256` per pack file, and the pull request is expected to carry its own index update rather
+than leaving `main` stale between runs — so editing a pack without regenerating the index leaves
+a committed digest describing the *previous* version of your file. `pack lint` and `pack check`
+both pass in that state; CI's "The committed index matches the packs" step is what fails, and it
+compares with `generatedAt` stripped, so a moved timestamp alone is not drift. Regenerate, commit
+`index.json` alongside the pack, and it is a non-event.
 
 **Why you are building it.** Rocky Surf has not published to npm yet — the release is gated
 behind v0.1.0 — so `npx rockysurf` fetches a placeholder with no `pack` command rather than the
