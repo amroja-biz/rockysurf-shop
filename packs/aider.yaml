@@ -46,6 +46,9 @@ pack:
       Aider commits as it goes, on your behalf, by design. `aider --no-auto-commits` if you
       would rather review first, and `git log` to see what it did either way.
 
+      This box has whatever Aider was current the day it booted, and nothing moves it forward
+      on its own. `pipx upgrade aider-chat` when you want a newer one.
+
     GitHub
       gh auth login           then: gh auth setup-git
 
@@ -75,24 +78,27 @@ tools:
       # pipx puts its binaries here, and this step's shell does not have it on PATH yet.
       export PATH="$HOME/.local/bin:$PATH"
       #
-      # PINNED, DELIBERATELY, AND NOT WITH UPSTREAM'S ONE-LINER. Aider's own install page
-      # recommends `curl -LsSf https://aider.chat/install.sh | sh`, which is precisely the shape
-      # docs/writing-a-pack.md warns about: the thing CI tested is not the thing your users get,
-      # and a box built six months from now installs something nobody here has ever run. pipx is
-      # already in the base toolchain, takes an explicit version, and resolves the right wheel
-      # for the architecture on its own — so there is nothing to branch on and nothing to trust.
+      # UNVERSIONED, AND NOT WITH UPSTREAM'S ONE-LINER. Two separate decisions, worth not
+      # confusing.
       #
-      # To bump: change this one line. aider-chat publishes wheels for every release on PyPI.
-      aider_version=0.86.2
+      # WHICH VERSION: latest, per docs/writing-a-pack.md § Which version to install. PyPI is a
+      # quota-free channel, so asking for the current release costs nothing and gives the user
+      # the Aider they actually read about. This file used to pin 0.86.2, and the pin was doing
+      # less than it looked: Aider ships constantly, so the pin mostly guaranteed that a box
+      # arrived out of date. `pipx install aider-chat` takes PyPI's newest non-prerelease.
       #
-      # The version is IN the stamp, so bumping it above reinstalls and leaving it alone makes a
-      # re-run a genuine no-op — which is the half of rule 1 the run-twice gate measures.
-      stamp="$HOME/.rockysurf/installed-aider-$aider_version"
-      if [ ! -f "$stamp" ]; then
-        # --force so this converges even if a previous attempt died between installing and
-        # writing the stamp; without it pipx exits non-zero on an already-installed package.
-        pipx install --force "aider-chat==$aider_version"
-        mkdir -p "$(dirname "$stamp")" && touch "$stamp"
+      # HOW: not `curl -LsSf https://aider.chat/install.sh | sh`, which Aider's install page
+      # recommends. That half of the old rule stands — piping a vendor's installer runs code
+      # neither this repository nor the smoke gate ever sees. pipx is already in the base
+      # toolchain and resolves the right wheel for the architecture on its own, so there is
+      # nothing here to branch on.
+      #
+      # A presence guard rather than a version stamp, because there is no version to stamp: the
+      # second run finds aider on PATH and does nothing, which is the half of rule 1 the
+      # run-twice gate measures. The cost is that the box keeps whatever it installed at boot —
+      # `pipx upgrade aider-chat` is how a user moves, and the guide says so.
+      if ! command -v aider >/dev/null 2>&1; then
+        pipx install aider-chat
       fi
       # Guarded, per rule 1: an unguarded append puts the same line in twice on a resumed
       # install, and PATH grows every time the box is rebuilt.

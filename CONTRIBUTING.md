@@ -104,7 +104,18 @@ rs pack lint packs
 # behavioural — a few minutes, needs Docker. Run it before you open the PR.
 rs pack check packs --pack my-pack --arch arm64
 rs pack check packs --pack my-pack --arch amd64
+
+# the index — instant, and the one people forget. Run it after EVERY edit to a pack file.
+rs pack index --source packs --out index.json
 ```
+
+**`pack index` is not optional, and it is the easy one to miss.** `index.json` records a
+`sha256` per pack file, and the pull request is expected to carry its own index update rather
+than leaving `main` stale between runs — so editing a pack without regenerating the index leaves
+a committed digest describing the *previous* version of your file. `pack lint` and `pack check`
+both pass in that state; CI's "The committed index matches the packs" step is what fails, and it
+compares with `generatedAt` stripped, so a moved timestamp alone is not drift. Regenerate, commit
+`index.json` alongside the pack, and it is a non-event.
 
 **Why you are building it.** Rocky Surf has not published to npm yet — the release is gated
 behind v0.1.0 — so `npx rockysurf` fetches a placeholder with no `pack` command rather than the
@@ -157,8 +168,14 @@ builds a URL from a variable will not appear in it. **The scripts are the ground
 
 A maintainer reads every community pull request before it merges. Expect questions about:
 
-- **what your scripts download, and from where.** Pin a version or a checksum. `@latest` and a
-  `main`-branch install script mean the thing CI tested is not the thing users get.
+- **what your scripts download, and from where.** A tool served by a quota-free registry (npm,
+  PyPI via `pipx`) installs **unversioned** — users expect the current agent, and a bare name
+  takes the registry's stable channel rather than a prerelease. A tool that ships only as a
+  GitHub release asset stays **pinned to a tag and checked against a `sha256`**, because the only
+  endpoint that answers "what is latest" there is rate-limited per source IP. Either way, do not
+  pipe a vendor's `install.sh` to `bash`, and do not cache-bust a download URL. The reasoning is
+  in the main repository's
+  [writing-a-pack.md](https://github.com/amroja-biz/rockysurf/blob/main/docs/writing-a-pack.md#which-version-to-install).
 - **which steps need root.** Declare `runAs` honestly. A `runAs: rocky` step that reaches for
   `sudo` fails here and would fail the same way on a real box.
 - **the `guide` field.** Say what a user has to do by hand once the box is theirs — how to
