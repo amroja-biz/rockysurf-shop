@@ -44,6 +44,11 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Push via the index-publisher deploy key: the protect-main ruleset requires
+          # PRs from humans, and the deploy key is its one bypass actor. The default
+          # workflow token can no longer push to main.
+          ssh-key: ${{ secrets.SHOP_INDEX_DEPLOY_KEY }}
       - id: harness
         uses: ./.github/actions/pack-harness
         with:
