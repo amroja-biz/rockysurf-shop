@@ -1,69 +1,25 @@
 # Rocky Surf Pack Shop
 
-The community registry for **Surge Packs** — the software bundles a
-[Rocky Surf](https://github.com/amroja-biz/rockysurf) server is created with.
+Registry for [Rocky Surf](https://github.com/amroja-biz/rockysurf) **Surge Packs** created by community members. This shop is visible within Rocky Surf.
 
-A pack is one YAML file describing the tools to install on a fresh Ubuntu box and the shell that
-installs them. This repository is where community packs live so that people can find them, read
-them, and send pull requests against them. A Rocky Surf control plane reads
-[`index.json`](index.json) from here and can install any pack in it without restarting.
+## Surge Packs
+A Surge Pack a bag of software defined in a YAML file. It's a core part of Rocky Surf and makes it dead easy to spin up cloud servers with your favorite tools and agentic coding harnesses pre-installed.
 
-## This registry is community packs only
+There are three types of Surge Packs:
 
-Rocky Surf's **official** packs are not here and will never be. They ship inside the Rocky Surf
-release itself, in that repository's `packs/` directory, and arrive on your machine with the
-software. Everything in this repository is contributed by the community.
+- Official. These are bundled into Rocky Surf.
+- Personal. Surge Packs that you create using the create-surge-pack skill from Rocky Surf.
+- Community. What you'll find here.
 
-That split is the point, and it is what makes the labels mean anything:
+## Security and trust
 
-- **official** = it came in the Rocky Surf tarball. No registry can supply one, including this
-  one.
-- **community** = it came from a registry, and the label is the one the *operator* wrote next to
-  that registry in their own config file.
+DO NOT TRUST THIS SHOP! 
 
-So the trust label is never something this repository asserts about itself. There is no `tier`
-field in `index.json`, deliberately — a trust label published by a registry is a claim about
-trustworthiness written by the party being trusted, and it could only ever be as good as the
-document containing it. Your control plane labels our packs `community` because *you* configured
-this URL as a community registry, and you can label an internal registry of your own whatever is
-true of it.
-
-## What the checks do and do not prove
-
-Every pull request runs two things, both from the published `rockysurf` package pinned to a
-version, so a pack is held to exactly the contract the control plane enforces:
-
-- **`rockysurf pack lint`** — the frozen file format, every tool id resolving, no id defined
-  twice, and the mechanical half of the four author rules: no hardcoded architecture without an
-  `$ARCH` branch, no `apt-get install` without `-y`, no `sudo` in a `runAs: rocky` script, no
-  unguarded append, nothing assuming cloud credentials or a metadata service.
-- **`rockysurf pack check`** — your pack, installed twice in one stock `ubuntu:24.04` container
-  with the resume journal discarded in between, on both `amd64` and `arm64`. The second run must
-  exit 0 and change nothing. This is the only thing that *proves* idempotency rather than
-  inspecting for it, and it is why a pack that works on your laptop can still fail here.
-
-**Neither is a security scan, and no wording in this repository should suggest otherwise.** An
-install script is arbitrary shell that runs as **root** on somebody else's machine. No schema
-check and no pattern match can decide whether it is benign. What those checks prove is that a
-pack is *well-formed and survives being resumed*.
-
-What protects the person installing a pack is three other things:
-
-1. a maintainer reads every pull request before it merges;
-2. the label is shown wherever a pack appears, and a community pack is never presented as
-   reviewed by anyone beyond that;
-3. the control plane shows an operator **every script a pack will run, verbatim**, along with
-   which steps run as root and every URL they fetch, *before* they consent to install it.
-
-`index.json` pins each pack by SHA-256, so a file swapped without regenerating the index is
-refused by the client. But whoever can write the index can write both halves — it is a pin, not
-a signature. Trust here rests on this repository's `main` branch and GitHub's account controls.
-That is a real limit, stated rather than dressed up; detached signatures are planned and are not
-in place today.
+Although we have safeguards in place, you should assume bad intent and check a Surge Pack's YAML file yourself before installing. Shop contributions are governed via pull requests and security checks but can't check for everything. If a Surge Pack includes a tool that is itself malicious, it won't be picked up in a YAML scan.
 
 ## Contributing a pack
 
-Read [CONTRIBUTING.md](CONTRIBUTING.md). The short version, and the thing worth knowing first:
+Read [CONTRIBUTING.md](CONTRIBUTING.md). In short:
 
 ### Your pack defines its own tools
 
