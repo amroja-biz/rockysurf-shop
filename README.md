@@ -1,4 +1,4 @@
-# Rocky Surf Pack Shop
+# Rocky Surf Shop
 
 Registry for [Rocky Surf](https://github.com/amroja-biz/rockysurf) **Surge Packs** and **Providers** created by community members. This shop is visible within Rocky Surf.
 
