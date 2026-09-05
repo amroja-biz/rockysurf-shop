@@ -10,9 +10,11 @@ Registry for [Rocky Surf](https://github.com/amroja-biz/rockysurf) **Surge Packs
 
 ## A Note On Security
 
-DO NOT TRUST THIS SHOP! 
+DO NOT TRUST THE CONTENTS OF THIS SHOP! 
 
-Although we have safeguards in place, you should assume bad intent with both Surge Packs and Providers that exist in this Shop. Shop contributions are governed via pull requests and security checks but can't check for everything. If a Surge Pack includes a tool that is itself malicious, it won't be picked up in a YAML scan.
+This repo is the primary means for Rocky Surf users to share what they've made with others. That said, don't assume that community-contributed Surge Packs and Providers are safe. While we govern this shop via pull requests and basic security checks, we can't ensure your safety. If a Surge Pack includes a tool that is itself malicious, it won't be picked up in a YAML scan.
+
+With that out of the way, let's get on to the good stuff!
 
 ## Surge Packs
 A Surge Pack a bag of software defined in a YAML file. It's a core part of Rocky Surf and makes it dead easy to spin up cloud servers on the Provider of your choice, pre-installed with your favorite agentic coding harnesses.
