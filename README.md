@@ -2,7 +2,7 @@
 
 <p align="center">
   <picture>  
-    <img src="rocky-surf-shop-optimized.webp" alt="Rocky Surf Shop">
+    <img src="rocky-surf-shop-optimized.webp" alt="Rocky Surf Shop" width="400">
   </picture>
 </p>
 
