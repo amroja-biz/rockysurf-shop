@@ -15,7 +15,7 @@ DO NOT TRUST THIS SHOP!
 Although we have safeguards in place, you should assume bad intent with both Surge Packs and Providers that exist in this Shop. Shop contributions are governed via pull requests and security checks but can't check for everything. If a Surge Pack includes a tool that is itself malicious, it won't be picked up in a YAML scan.
 
 ## Surge Packs
-A Surge Pack a bag of software defined in a YAML file. It's a core part of Rocky Surf and makes it dead easy to spin up cloud servers on the Provider of your choice, pre-installed with your favorite agentic coding harnesses and GitHub repos.
+A Surge Pack a bag of software defined in a YAML file. It's a core part of Rocky Surf and makes it dead easy to spin up cloud servers on the Provider of your choice, pre-installed with your favorite agentic coding harnesses.
 
 There are three types of Surge Packs:
 
