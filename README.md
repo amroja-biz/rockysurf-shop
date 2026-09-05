@@ -31,18 +31,13 @@ Rocky Surf fetches it only when an operator opens the Providers tab of their Sho
 for every entry, what the provider will ask them to configure and what its machines can and cannot
 do — before anything is installed.
 
-**Read this part even if you skip the rest.** A provider is not a YAML file describing scripts
-that run on a server you create. It is a package that runs **inside the operator's control plane**,
+Unlike Surge Packs, a provider is not defined in a YAML file. It is a package that runs **inside your Rocky Surf installation**,
 with everything that process can reach: its database, its master key, and every cloud credential in
-its environment. Rocky Surf says so on every listing it draws, in one sentence this repository
-cannot change, cannot soften and cannot leave out:
+its environment. Rocky Surf states this clearly in the interface:
 
 > a provider runs with Rocky Surf's full access — install ones you trust.
 
-There is deliberately no trust, tier or verification field in `providers.json`, and Rocky Surf
-refuses a listing that carries one. A claim about trustworthiness written by the party being
-trusted is worth nothing. The label an operator sees is the one they wrote next to this registry in
-their own config file.
+As with Surge Packs, the onus is on you to test that there's no sneaky business going on with community-authored Providers distributed by this Shop.
 
 Two things follow for anyone contributing an entry:
 
