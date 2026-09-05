@@ -2,6 +2,8 @@
 
 Registry for [Rocky Surf](https://github.com/amroja-biz/rockysurf) **Surge Packs** created by community members. This shop is visible within Rocky Surf.
 
+It also lists **providers** — the clouds Rocky Surf can create servers on. See [Providers](#providers) below.
+
 ## Surge Packs
 A Surge Pack a bag of software defined in a YAML file. It's a core part of Rocky Surf and makes it dead easy to spin up cloud servers with your favorite tools and agentic coding harnesses pre-installed.
 
@@ -16,6 +18,44 @@ There are three types of Surge Packs:
 DO NOT TRUST THIS SHOP! 
 
 Although we have safeguards in place, you should assume bad intent and check a Surge Pack's YAML file yourself before installing. Shop contributions are governed via pull requests and security checks but can't check for everything. If a Surge Pack includes a tool that is itself malicious, it won't be picked up in a YAML scan.
+
+## Providers
+
+A **provider** is the code that talks to a cloud — how Rocky Surf creates, stops, describes and
+terminates a machine there. Five ship inside Rocky Surf (AWS, Azure, GCP, Hetzner and
+bring-your-own); anyone can write another against the published provider SDK, and this registry is
+how one reaches other people's installations.
+
+Providers are listed in [`providers.json`](providers.json), a separate file from `index.json`.
+Rocky Surf fetches it only when an operator opens the Providers tab of their Shop page, and shows,
+for every entry, what the provider will ask them to configure and what its machines can and cannot
+do — before anything is installed.
+
+**Read this part even if you skip the rest.** A provider is not a YAML file describing scripts
+that run on a server you create. It is a package that runs **inside the operator's control plane**,
+with everything that process can reach: its database, its master key, and every cloud credential in
+its environment. Rocky Surf says so on every listing it draws, in one sentence this repository
+cannot change, cannot soften and cannot leave out:
+
+> a provider runs with Rocky Surf's full access — install ones you trust.
+
+There is deliberately no trust, tier or verification field in `providers.json`, and Rocky Surf
+refuses a listing that carries one. A claim about trustworthiness written by the party being
+trusted is worth nothing. The label an operator sees is the one they wrote next to this registry in
+their own config file.
+
+Two things follow for anyone contributing an entry:
+
+- **The artifact must be self-contained.** Rocky Surf never runs `npm`, never runs a lifecycle
+  script, and never executes anything from the package at install time. So a tarball whose
+  `dependencies` are not already present on the operator's machine is refused, naming them. Bundle
+  what you import.
+- **The `sha256` is checked**, by this repository's CI and again by every control plane that
+  installs it. Update it whenever you publish a new version.
+
+To add one, read [CONTRIBUTING.md](CONTRIBUTING.md#contributing-a-provider) and the authoring
+guide, [`docs/writing-a-provider.md`](https://github.com/amroja-biz/rockysurf/blob/main/docs/writing-a-provider.md),
+whose "Publishing to the shop" section has the `pnpm pack` recipe and the full entry format.
 
 ## Contributing a pack
 

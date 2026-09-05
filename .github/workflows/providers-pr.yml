@@ -1,0 +1,68 @@
+# Every pull request that touches the provider listing.
+#
+# WHY THERE IS NO GENERATION STEP HERE, unlike `index.yml`. A pack lives in this repository, so
+# its listing — digest and all — is derived from the files beside it. A provider's artifact does
+# not: it is a tarball on npm or on a release page, and what this repository holds is a
+# description of it. There is nothing to generate from, so `providers.json` is hand-written,
+# reviewed in the pull request, and checked here.
+#
+# WHAT THIS DOES NOT DO. It does not decide whether a provider is safe, and it cannot. A provider
+# runs inside an operator's control plane with that process's full access — its database, its
+# master key, every cloud credential in its environment. Rocky Surf states that on every listing
+# it draws, in words this repository cannot alter. A maintainer reading the diff, and the
+# operator's own decision to install, are the controls that cover the rest.
+name: provider listing
+
+on:
+  pull_request:
+    paths:
+      - 'providers.json'
+      - 'scripts/validate-providers.mjs'
+      - '.github/workflows/providers-pr.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'providers.json'
+      - 'scripts/validate-providers.mjs'
+      - '.github/workflows/providers-pr.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      # No install step: the validator has no dependencies, deliberately.
+      - run: node scripts/validate-providers.mjs providers.json
+
+      # The artifact a listing points at is fetched by an operator's control plane, which verifies
+      # the digest and refuses a mismatch. Checking it here too turns "your hash is stale" from
+      # something an operator discovers into something the pull request says.
+      - name: Every tarball matches the sha256 the listing publishes
+        run: |
+          set -euo pipefail
+          count=$(node -e 'console.log(JSON.parse(require("fs").readFileSync("providers.json","utf8")).providers.length)')
+          if [ "$count" = "0" ]; then
+            echo "no provider entries to fetch"
+            exit 0
+          fi
+          node -e '
+            const listing = JSON.parse(require("fs").readFileSync("providers.json","utf8"))
+            for (const p of listing.providers) console.log(`${p.providerId}\t${p.tarball}\t${p.sha256}`)
+          ' > /tmp/artifacts.tsv
+          while IFS=$'\t' read -r id url want; do
+            echo "::group::$id"
+            curl -fsSL --max-time 60 "$url" -o /tmp/artifact.tgz
+            got=$(shasum -a 256 /tmp/artifact.tgz | cut -d' ' -f1)
+            if [ "$got" != "$want" ]; then
+              echo "$id: $url is $got, the listing says $want"
+              exit 1
+            fi
+            echo "$id: digest matches"
+            echo "::endgroup::"
+          done < /tmp/artifacts.tsv
