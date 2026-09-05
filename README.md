@@ -24,7 +24,7 @@ A Surge Pack a bag of software defined in a YAML file. It's a core part of Rocky
 There are three types of Surge Packs:
 
 - Official. These are bundled into Rocky Surf.
-- Personal. Surge Packs that you create using the create-surge-pack skill from Rocky Surf.
+- Personal. Surge Packs that you create using the [create-surge-pack](https://github.com/amroja-biz/rockysurf/tree/main/.agents/skills/create-surge-pack) skill from Rocky Surf.
 - Community. What you'll find here.
 
 ### Contributing a pack
@@ -34,7 +34,7 @@ Read [CONTRIBUTING.md](CONTRIBUTING.md). In short:
 #### Your pack defines its own tools
 
 **A pack can install anything.** You are not picking from a list, and nothing has to be added to
-Rocky Surf first. A tool is just an id, a description, and maybe an install script. For example:
+Rocky Surf first. A tool is just an id, a description, and an install script. For example:
 
 ```yaml
 version: 1
@@ -60,14 +60,13 @@ tools:
     runAs: root
 ```
 
-That pack passes every check in this repository with no involvement from a Rocky Surf maintainer,
-and there is a test in the main repository that proves it. New tools are the normal case — this
-registry exists so that the set of installable software is not gated on anyone's release cycle.
+Surge Packs contributed to this repo are tested for validity so use the skill instead of rolling your own. This will save you time.
 
-#### Reusing the plumbing, if you want it
+#### Reusable core
 
-The one thing you should *not* redeclare is the shared plumbing every box already installs:
-`curl`, `git`, `gh`, `nodejs`, `tmux`, `build-essential` and friends. Those ship with Rocky Surf,
+*Do not* redeclare tools that Rocky Surf automatically installs on every box:
+`curl`, `git`, `gh`, `nodejs`, `tmux`, `build-essential`, `jq` and maybe others over time. 
+
 and you reference them by id instead of copy-pasting their scripts into your file:
 
 ```yaml
@@ -95,10 +94,6 @@ rs pack check packs --pack my-pack
 `npx rockysurf` does not get you the harness — it gets a placeholder with no `pack` command.
 Once v0.1.0 ships, these become `npx rockysurf@<version> pack …` and the clone goes away.
 
-You will notice there is no `--base-packs` flag. A built harness carries the packs its own
-release ships, so the shared plumbing your pack references resolves out of the binary itself.
-The flag exists for pointing the checks at some *other* toolchain, which is not the normal case.
-
 The authoring contract itself is
 [`docs/writing-a-pack.md`](https://github.com/amroja-biz/rockysurf/blob/main/docs/writing-a-pack.md)
 in the main repository. It is normative, it has worked examples of the right and wrong way to
@@ -109,26 +104,28 @@ write each rule, and it is the document to read first.
 reads, so a pack missing from it reaches nobody. CI checks the committed index against `packs/`
 and names that command if the two disagree. Do not hand-edit it; regenerate it.
 
+Again, you should be fine if you use the provided skill.
+
 ### Naming Surge Packs
 
-Name your pack for what it does. `rust-dev`, `data-science`, `elixir-phoenix` — all fine. Do not
+Name your pack for what it does. `rust-dev`, `data-science`, `elixir-phoenix` — all fine. Please do not
 name it in a way that reads as official, and do not use the Rocky Surf name or logo as your own
-branding; see the main repository's
+branding. See the main repository's
 [TRADEMARK.md](https://github.com/amroja-biz/rockysurf/blob/main/TRADEMARK.md), which governs
-this repository too. Accurate descriptive references — "a Surge Pack for Rocky Surf" — are
-explicitly fine and always will be.
+this repository too. 
 
 ## Providers
 
-A **provider** is the code that talks to a cloud — how Rocky Surf creates, stops, describes and
+A **Provider** is the code that talks to a cloud — how Rocky Surf creates, stops, describes and
 terminates a machine there. Five ship inside Rocky Surf (AWS, Azure, GCP, Hetzner and
 bring-your-own); anyone can write another against the published provider SDK, and this registry is
 how one reaches other people's installations.
 
-Providers are listed in [`providers.json`](providers.json), a separate file from `index.json`.
-Rocky Surf fetches it only when an operator opens the Providers tab of their Shop page, and shows,
-for every entry, what the provider will ask them to configure and what its machines can and cannot
-do — before anything is installed.
+As with Surge Packs, there's a handy [add-provider]() agent skill to do this for you. 
+
+Community-contributed Providers are listed in [`providers.json`](providers.json) that
+Rocky Surf fetches when an operator opens the Providers tab of their Shop page. This shows the 
+user details about what configuration requirements and relevant information.
 
 Unlike Surge Packs, a provider is not defined in a YAML file. It is a package that runs **inside your Rocky Surf installation**,
 with everything that process can reach: its database, its master key, and every cloud credential in
@@ -138,18 +135,15 @@ its environment. Rocky Surf states this clearly in the interface:
 
 The onus is on you to test that there's no sneaky business going on with community-authored Providers distributed by this Shop.
 
-Two things follow for anyone contributing an entry:
+For contributors:
 
-- **The artifact must be self-contained.** Rocky Surf never runs `npm`, never runs a lifecycle
-  script, and never executes anything from the package at install time. So a tarball whose
-  `dependencies` are not already present on the operator's machine is refused, naming them. Bundle
-  what you import.
-- **The `sha256` is checked**, by this repository's CI and again by every control plane that
-  installs it. Update it whenever you publish a new version.
+- **The artifact must be self-contained.** Rocky Surf doesn't run anything from the package at install time. So a tarball whose
+  `dependencies` are not already present on the operator's machine is refused. Hence, you need to bundle imports.
+- **The `sha256` is checked**, by this repository's CI and again by the Rocky Surf control plane. That means the sha256 needs 
+  to be updated whenever you publish a new version.
 
-To add one, read [CONTRIBUTING.md](CONTRIBUTING.md#contributing-a-provider) and the authoring
-guide, [`docs/writing-a-provider.md`](https://github.com/amroja-biz/rockysurf/blob/main/docs/writing-a-provider.md),
-whose "Publishing to the shop" section has the `pnpm pack` recipe and the full entry format.
+To submit a Provider to this shop, read [CONTRIBUTING.md](CONTRIBUTING.md#contributing-a-provider) and the authoring
+guide, [`docs/writing-a-provider.md`](https://github.com/amroja-biz/rockysurf/blob/main/docs/writing-a-provider.md).
 
 ## Discord
 
