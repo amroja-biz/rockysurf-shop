@@ -14,6 +14,8 @@ DO NOT TRUST THE CONTENTS OF THIS SHOP!
 
 This repo is the primary means for Rocky Surf users to share what they've made with others. That said, don't assume that community-contributed Surge Packs and Providers are safe. While we govern this shop via pull requests and basic security checks, we can't ensure your safety. If a Surge Pack includes a tool that is itself malicious, it won't be picked up in a YAML scan.
 
+If you find something that looks suspicious, report it on the [Rocky Surf Discord](https://discord.gg/AbPsjNEmbh).
+
 With that out of the way, let's get on to the good stuff!
 
 ## Surge Packs
