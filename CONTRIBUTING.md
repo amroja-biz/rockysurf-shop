@@ -203,7 +203,104 @@ to run it.
 If you would be uncomfortable with a stranger reading your `installScript` line by line, it is
 not ready.
 
+## Contributing a provider
+
+A provider is a different kind of contribution from a pack, and the difference is worth stating
+before the mechanics: a pack is a file describing scripts that run on a server the operator
+creates, and a provider is **a package that runs inside the operator's control plane**, with its
+database, its master key and every cloud credential in its environment. Rocky Surf puts one
+sentence on every listing it draws — *a provider runs with Rocky Surf's full access — install ones
+you trust* — and nothing in this repository can alter it.
+
+What you contribute here is a **description**, not the code. The code is a tarball you publish
+somewhere else (npm, a GitHub release, any static host over `https`), and
+[`providers.json`](providers.json) points at it.
+
+### Before you open the pull request
+
+1. **Write and test the provider.** [`docs/writing-a-provider.md`](https://github.com/amroja-biz/rockysurf/blob/main/docs/writing-a-provider.md)
+   is the contract, and `@rockysurf/provider-conformance` is the acceptance suite — published so
+   you can actually run it rather than take the bar on trust.
+2. **Make the artifact self-contained.** Rocky Surf never runs `npm` and never runs a lifecycle
+   script, so nothing resolves a dependency for you. Declare no runtime `dependencies`, or bundle
+   your imports. An install is refused, naming the packages, if any declared dependency is not
+   already on the operator's machine.
+3. **Pack and hash it.**
+   ```bash
+   npm run build && npm pack
+   tar -tzf you-rockysurf-provider-mycloud-1.0.0.tgz   # is your built entry point in there?
+   shasum -a 256 you-rockysurf-provider-mycloud-1.0.0.tgz
+   ```
+4. **Publish it over `https`.** Plain `http` is refused by the listing format and by the
+   installer: the artifact and the digest meant to catch a change to it would arrive over the same
+   rewritable connection.
+
+### The entry
+
+Add one object to the `providers` array in `providers.json`:
+
+```json
+{
+  "providerId": "mycloud",
+  "name": "MyCloud",
+  "description": "MyCloud compute, one API token, four regions.",
+  "version": "1.0.0",
+  "package": "@you/rockysurf-provider-mycloud",
+  "tarball": "https://registry.npmjs.org/@you/rockysurf-provider-mycloud/-/rockysurf-provider-mycloud-1.0.0.tgz",
+  "sha256": "…",
+  "settings": [
+    { "name": "token", "label": "API token variable", "kind": "secret" },
+    { "name": "region", "label": "Region", "kind": "string" }
+  ],
+  "capabilities": {
+    "stop": true,
+    "ipStableAcrossStop": false,
+    "canInjectHostKeys": false,
+    "generatesUserData": false,
+    "userDataMaxBytes": 0,
+    "managesSshAccess": true,
+    "billsWhileStopped": true
+  }
+}
+```
+
+- `providerId` is the config-file section key an operator ends up with, and must equal your
+  factory's `id`. Lowercase letters, digits and hyphens.
+- `package` must equal your published manifest's `name` — the installer compares them and refuses
+  a listing that disagrees with the artifact it points at.
+- `settings` is the summary an operator reads before installing: names, labels, and one of
+  `string`, `number`, `boolean`, `secret`, `stringList`, `sshCidrList`. Keep it in step with what
+  your factory declares.
+- `capabilities` are your factory's own answers, verbatim. `billsWhileStopped` in particular is
+  how somebody learns, before installing, that a stopped machine on your cloud still costs money.
+- There is **no** `trust`, `tier` or `verified` field, and adding one fails the check.
+
+Also bump `generatedAt` to the day you edited the file. Then run the validator, which is what CI
+runs:
+
+```bash
+node scripts/validate-providers.mjs providers.json
+```
+
+CI additionally downloads every tarball the listing names and compares its digest, so a stale
+`sha256` is caught here rather than by an operator.
+
+### Publishing a new version
+
+Bump `version`, publish the new tarball, update `sha256`, and open a pull request. An operator's
+Update button re-fetches and **replaces** the installed package, so files you dropped between
+versions are genuinely gone from their machine.
+
+### What the checks do not prove — again, and more so
+
+The validator checks the shape of a description. It says nothing about the code the description
+points at, and it cannot: that code runs with an operator's full access. Review here is a person
+reading your repository, and the control that matters most is the operator's own decision, made
+with that one sentence in front of them.
+
 ## License
 
 By contributing you agree your pack is licensed under the [MIT license](LICENSE), the same terms
-as the main repository. The Rocky Surf name and logo are not covered by it.
+as the main repository. The Rocky Surf name and logo are not covered by it. A provider you list
+here stays under whatever licence you publish it with — this repository holds only the entry that
+describes it.
