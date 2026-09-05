@@ -19,7 +19,7 @@ If you find something that looks suspicious, report it on the [Rocky Surf Discor
 With that out of the way, let's get on to the good stuff!
 
 ## Surge Packs
-A Surge Pack a bag of software defined in a YAML file. It's a core part of Rocky Surf and makes it dead easy to spin up cloud servers on the Provider of your choice, pre-installed with your favorite agentic coding harnesses.
+A Surge Pack a bag of software defined in a YAML file. It's a core part of Rocky Surf and makes it dead easy to spin up cloud servers on the Provider of your choice, pre-installed with your favorite agent harness.
 
 There are three types of Surge Packs:
 
