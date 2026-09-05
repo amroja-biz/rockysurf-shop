@@ -1,5 +1,11 @@
 # Rocky Surf Shop
 
+<p align="center">
+  <picture>  
+    <img src="rocky-surf-shop-optimized.webp" alt="Rocky Surf Shop">
+  </picture>
+</p>
+
 Registry for [Rocky Surf](https://github.com/amroja-biz/rockysurf) **Surge Packs** and **Providers** created by community members. This shop is visible within Rocky Surf.
 
 ## A Note On Security
