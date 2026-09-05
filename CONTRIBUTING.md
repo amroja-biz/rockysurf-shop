@@ -225,6 +225,11 @@ somewhere else (npm, a GitHub release, any static host over `https`), and
    script, so nothing resolves a dependency for you. Declare no runtime `dependencies`, or bundle
    your imports. An install is refused, naming the packages, if any declared dependency is not
    already on the operator's machine.
+
+   `@rockysurf/provider-digitalocean` is the worked example, and it lives in the Rocky Surf
+   repository at `packages/provider-digitalocean`: no runtime dependencies at all, a hand-written
+   config schema rather than zod, and a build that compiles the SDK's runtime helpers into its
+   `dist/` with the SDK kept as a devDependency. Copy that shape rather than inventing one.
 3. **Pack and hash it.**
    ```bash
    npm run build && npm pack
