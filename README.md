@@ -123,9 +123,12 @@ how one reaches other people's installations.
 
 As with Surge Packs, there's a handy [add-provider]() agent skill to do this for you. 
 
-Community-contributed Providers are listed in [`providers.json`](providers.json) that
-Rocky Surf fetches when an operator opens the Providers tab of their Shop page. This shows the 
-user details about what configuration requirements and relevant information.
+Community-contributed Providers are listed in [`providers.json`](providers.json). Each entry names
+the package, the tarball and its `sha256`, the settings the provider will ask you for, and its
+capability answers — so you can decide before you download anything.
+
+**Rocky Surf does not install providers for you.** It links here, and the install is a couple of
+commands and a restart; see [Installing one](#installing-one) below.
 
 Unlike Surge Packs, a provider is not defined in a YAML file. It is a package that runs **inside your Rocky Surf installation**,
 with everything that process can reach: its database, its master key, and every cloud credential in
@@ -135,10 +138,49 @@ its environment. Rocky Surf states this clearly in the interface:
 
 The onus is on you to test that there's no sneaky business going on with community-authored Providers distributed by this Shop.
 
+### Installing one
+
+Take the `package`, `tarball` and `sha256` from the entry you want. On the machine running Rocky
+Surf, with `~/.rockysurf` as the data directory (in the container it is `/data`, on the volume):
+
+```bash
+# 1. Download it, and check it is the artifact the listing describes.
+curl -fLO <tarball-url>
+shasum -a 256 <file>.tgz            # must equal the listing's sha256 — stop here if it does not
+
+# 2. Unpack it where Rocky Surf looks for provider packages.
+mkdir -p ~/.rockysurf/providers/node_modules/<package>
+tar -xzf <file>.tgz -C ~/.rockysurf/providers/node_modules/<package> --strip-components=1
+```
+
+Then name it in `rockysurf.config.yaml`, keyed by the entry's `providerId`:
+
+```yaml
+providers:
+  mycloud:
+    package: "@you/rockysurf-provider-mycloud"
+    enabled: true
+```
+
+and **restart Rocky Surf**. A provider's package is imported once, before boot, so the restart is
+what makes it live — and it is the moment you choose for that code to run. Nothing in the steps
+above runs anything from the package; `tar` only extracts it.
+
+After the restart the provider has its own tab on the **Settings** page, with the fields the
+listing's `settings` summary named — the same panel a provider that shipped with Rocky Surf gets.
+Its own README says what each field wants. The long version, including what happens when a package
+fails to load, is [`docs/self-hosting.md` §
+Personal providers](https://github.com/amroja-biz/rockysurf/blob/main/docs/self-hosting.md#personal-providers).
+
+To update, unpack the new tarball over the same directory and restart again. To remove one, delete
+the directory and the `providers.<id>` section — but terminate any servers you created with it
+first, because a provider whose package is gone cannot describe, stop or terminate them.
+
 For contributors:
 
-- **The artifact must be self-contained.** Rocky Surf doesn't run anything from the package at install time. So a tarball whose
-  `dependencies` are not already present on the operator's machine is refused. Hence, you need to bundle imports.
+- **The artifact must be self-contained.** The install is `tar -xzf` and nothing else, so nothing
+  resolves a dependency for the operator — a package whose `dependencies` are not already on their
+  machine simply fails to import at their next start. Declare none, or bundle your imports.
 - **The `sha256` is checked**, by this repository's CI and again by the Rocky Surf control plane. That means the sha256 needs 
   to be updated whenever you publish a new version.
 
