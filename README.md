@@ -34,8 +34,7 @@ Read [CONTRIBUTING.md](CONTRIBUTING.md). In short:
 #### Your pack defines its own tools
 
 **A pack can install anything.** You are not picking from a list, and nothing has to be added to
-Rocky Surf first. A tool is just an id, a description, and a shell script you wrote — declare it
-in your own file and it exists:
+Rocky Surf first. A tool is just an id, a description, and maybe an install script. For example:
 
 ```yaml
 version: 1
