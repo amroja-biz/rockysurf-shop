@@ -6,7 +6,7 @@
   </picture>
 </p>
 
-Registry for [Rocky Surf](https://github.com/amroja-biz/rockysurf) **Surge Packs** and **Providers** created by community members. Surge Packs are browsed and installed from inside Rocky Surf; providers are installed from the command line, following this page.
+Registry for [Rocky Surf](https://github.com/amroja-biz/rockysurf) **Surge Packs** and **Providers** created by community members. Both are browsed and installed from inside Rocky Surf, on its Rocky Surf Shop tab; the command-line steps on this page are the same install performed by hand.
 
 ## A Note On Security
 
@@ -134,8 +134,8 @@ Community-contributed Providers are listed in [`providers.json`](providers.json)
 the package, the tarball and its `sha256`, the settings the provider will ask you for, and its
 capability answers — so you can decide before you download anything.
 
-**Rocky Surf does not install providers for you.** It links here, and the install is a couple of
-commands and a restart; see [Installing one](#installing-one) below.
+Rocky Surf installs from this listing on its **Rocky Surf Shop** tab; the command-line steps
+under [Installing one](#installing-one) are the same install performed by hand.
 
 Unlike Surge Packs, a provider is not defined in a YAML file. It is a package that runs **inside your Rocky Surf installation**,
 with everything that process can reach: its database, its master key, and every cloud credential in
@@ -147,7 +147,19 @@ The onus is on you to test that there's no sneaky business going on with communi
 
 ### Installing one
 
-Take the `package`, `tarball` and `sha256` from the entry you want. On the machine running Rocky
+**From Rocky Surf.** Open the **Rocky Surf Shop** tab in a Rocky Surf that lists this repository
+under `registry.sources` (the default does). Every provider listed here is a card showing its
+version, what it will ask you to configure, and what its machines can do, including whether a
+stopped machine still bills. Press **Install**: Rocky Surf fetches the tarball over https, checks
+its SHA-256 against the `sha256` in `providers.json`, unpacks it under the data directory's
+`providers` folder, and writes `providers.<id>.package` and `enabled: true` to the config file.
+Nothing in the package runs until you restart Rocky Surf; the card says so. After the restart,
+configure the provider on the **Settings** page, on its own tab.
+
+A listing whose `sha256` does not match the tarball, whose `tarball` is not an `https` URL, or
+whose package declares runtime `dependencies` is refused, and nothing is written.
+
+**From the command line**, the same steps by hand. Take the `package`, `tarball` and `sha256` from the entry you want. On the machine running Rocky
 Surf, with `~/.rockysurf` as the data directory (in the container it is `/data`, on the volume):
 
 ```bash
