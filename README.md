@@ -25,7 +25,10 @@ There are three types of Surge Packs:
 
 - Official. These are bundled into Rocky Surf.
 - Personal. Surge Packs that you create using the [create-surge-pack](https://github.com/amroja-biz/rockysurf/tree/main/.agents/skills/create-surge-pack) skill from Rocky Surf.
-- Community. What you'll find here.
+- Community. What you'll find here. The [contribute-surge-pack](https://github.com/amroja-biz/rockysurf/tree/main/.agents/skills/contribute-surge-pack)
+  skill takes a finished pack and does everything on this page for you: it runs the checks
+  below on your own machine, forks this repo, regenerates `index.json`, and opens the pull
+  request only once all of that is green.
 
 ### Contributing a pack
 
@@ -104,7 +107,11 @@ write each rule, and it is the document to read first.
 reads, so a pack missing from it reaches nobody. CI checks the committed index against `packs/`
 and names that command if the two disagree. Do not hand-edit it; regenerate it.
 
-Again, you should be fine if you use the provided skill.
+Two skills, two jobs: [create-surge-pack](https://github.com/amroja-biz/rockysurf/tree/main/.agents/skills/create-surge-pack)
+writes the pack file, and [contribute-surge-pack](https://github.com/amroja-biz/rockysurf/tree/main/.agents/skills/contribute-surge-pack)
+turns a finished one into a pull request here. It runs `pack lint`, `pack check` on both
+architectures and the `index.json` regeneration above before it opens anything, and it refuses
+to open a pull request for a pack that fails one of them.
 
 ### Naming Surge Packs
 

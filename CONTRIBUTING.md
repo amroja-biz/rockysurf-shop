@@ -109,6 +109,11 @@ rs pack check packs --pack my-pack --arch amd64
 rs pack index --source packs --out index.json
 ```
 
+If you would rather not run these by hand, the
+[`contribute-surge-pack`](https://github.com/amroja-biz/rockysurf/tree/main/.agents/skills/contribute-surge-pack)
+agent skill in the main repository runs exactly these commands, in this order, and stops at the
+first one that fails.
+
 **`pack index` is not optional, and it is the easy one to miss.** `index.json` records a
 `sha256` per pack file, and the pull request is expected to carry its own index update rather
 than leaving `main` stale between runs — so editing a pack without regenerating the index leaves
@@ -281,11 +286,8 @@ Then confirm the manifest inside the tarball declares no runtime dependencies:
 tar -xzOf you-rockysurf-provider-mycloud-1.0.0.tgz package/package.json | grep -A3 '"dependencies"'
 ```
 
-No output is the right answer. Finally, take the digest; you will paste it into the listing:
-
-```bash
-shasum -a 256 you-rockysurf-provider-mycloud-1.0.0.tgz
-```
+No output is the right answer. You do not need to hash the file yourself: Step 3 digests the
+file it reads, which is the only digest worth publishing.
 
 ### Step 2 — publish the tarball as a GitHub release
 
@@ -330,7 +332,7 @@ touching the listing. Do not delete or re-upload a release asset after the listi
 operators compare the digest, and a changed file fails their install. A new version is a new tag
 (Step 5).
 
-### Step 3 — write the listing entry
+### Step 3 — generate the listing entry
 
 Fork this repository and clone your fork:
 
@@ -340,8 +342,20 @@ cd rockysurf-shop
 git checkout -b providers/mycloud
 ```
 
-Add one object to the `providers` array in `providers.json`. Every value comes from a place you
-can look up; nothing is invented here:
+**Do not write the entry by hand.** Nine fields, and seven of them are already inside the tarball
+you built in Step 1 — a settings summary copied field by field out of a declaration, and a
+capability struct copied out of a source file, are two transcriptions that go stale silently.
+`@rockysurf/provider-sdk` ships a command that reads them:
+
+```bash
+npx rockysurf-shop-entry ~/src/mycloud/you-rockysurf-provider-mycloud-1.0.0.tgz \
+  --tarball-url https://github.com/you/rockysurf-provider-mycloud/releases/download/v1.0.0/you-rockysurf-provider-mycloud-1.0.0.tgz \
+  --description "MyCloud compute, one API token, four regions."
+```
+
+Point it at the **same `.tgz` you attached to the release** — the digest it prints is of the bytes
+it read. It writes the entry to stdout and nothing else, so it pipes into `pbcopy`, into `jq`, or
+straight into your editor:
 
 ```json
 {
@@ -351,7 +365,7 @@ can look up; nothing is invented here:
   "version": "1.0.0",
   "package": "@you/rockysurf-provider-mycloud",
   "tarball": "https://github.com/you/rockysurf-provider-mycloud/releases/download/v1.0.0/you-rockysurf-provider-mycloud-1.0.0.tgz",
-  "sha256": "the 64 hex characters from shasum in Step 1",
+  "sha256": "227011c38b5a4033cfafbf7797692d763ba81c25ef5e6141f90d03705236723d",
   "settings": [
     { "name": "token", "label": "API token variable", "kind": "secret" },
     { "name": "region", "label": "Region", "kind": "string" }
@@ -368,16 +382,27 @@ can look up; nothing is invented here:
 }
 ```
 
+Paste that object into the `providers` array in `providers.json`.
+
+**Only the two options are yours to write.** Everything else was read out of the artifact, and the
+table below says from where — you are still the one signing the pull request, so it is worth
+knowing what each value is a reading of:
+
 | Field | Where its value comes from |
 |---|---|
-| `providerId` | Your factory's `id`. It becomes the operator's `providers.<id>:` config section key. Lowercase letters, digits and hyphens. |
-| `name`, `description` | Free text. One line each; the description is what an operator reads first. |
-| `version` | The `version` in your `package.json`, and the tag you released. |
-| `package` | The `name` in your `package.json`, exactly. The operator writes it on the `package:` line of their config, so a listing that disagrees with its own artifact points them at nothing. |
-| `tarball` | The release download URL from Step 2. It must be `https`. |
-| `sha256` | The digest from Step 1, lowercase hex, 64 characters. |
-| `settings` | One object per field in your factory's `settings.fields`, with only `name`, `label` and `kind` copied over. `kind` is one of `string`, `number`, `boolean`, `secret`, `stringList`, `sshCidrList`. Leave out `enabled`, `package` and `sizes`; every panel gets those. |
-| `capabilities` | Your factory's `capabilities` object, verbatim. `stop`, `ipStableAcrossStop`, `canInjectHostKeys`, `generatesUserData` and `userDataMaxBytes` are required; `managesSshAccess`, `billsWhileStopped` and `simulatedInstances` are included when your factory sets them. `billsWhileStopped` is how somebody learns, before installing, that a stopped machine on your cloud still costs money. |
+| `providerId` | Your factory's `id`. It becomes the operator's `providers.<id>:` config section key. |
+| `name` | Your factory's `settings.title` — the heading an operator sees over these very fields once it is installed — falling back to `displayName`. |
+| `description` | **You**, in `--description`. One line, and the first thing an operator reads. |
+| `version` | The `version` in the manifest inside the tarball, which is the tag you released. |
+| `package` | The `name` in that manifest. The operator writes it on the `package:` line of their config. |
+| `tarball` | **You**, in `--tarball-url`. `https` only; `http` is refused before you can open the pull request. |
+| `sha256` | The digest of the bytes the command read. Hash nothing yourself. |
+| `settings` | Your factory's declared `settings.fields`, in declared order, reduced to `name`, `label` and `kind`. `enabled`, `package` and `sizes` are left out; every panel gets those. |
+| `capabilities` | The capabilities of the provider your factory's `createProvider()` returns. The required five, plus `managesSshAccess`, `billsWhileStopped` and `simulatedInstances` when your factory sets them. `billsWhileStopped` is how somebody learns, before installing, that a stopped machine on your cloud still costs money. |
+
+The command refuses two things here rather than letting this repository's CI find them: a package
+whose manifest declares runtime `dependencies`, naming them, and a `--tarball-url` that is not
+`https`.
 
 Do not add any other field. There is no `trust`, `tier` or `verified`: a registry never publishes a
 trust label, and the validator rejects one.
@@ -392,6 +417,11 @@ node scripts/validate-providers.mjs providers.json
 
 It prints `providers.json: N provider entries, all valid` or lists every problem with the field it
 is in.
+
+> If `npx rockysurf-shop-entry` cannot resolve — Rocky Surf has not published to npm yet — get
+> `@rockysurf/provider-sdk` from a checkout of the main repository (`pnpm pack` in
+> `packages/provider-sdk`) and install that tarball; it is the same artifact the release will
+> publish.
 
 ### Step 4 — open the pull request
 
@@ -420,8 +450,9 @@ they take the `package`, `tarball` and `sha256` from your entry and follow
 ### Step 5 — publishing a new version
 
 Repeat Steps 1 and 2 with the new version number and a new tag (`v1.1.0`, a new release, the new
-tarball attached). Then a pull request that changes `version`, `tarball` and `sha256` in your
-entry, and bumps `generatedAt`. Leave the old release in place: an operator who already installed
+tarball attached). Then re-run the Step 3 command on the new tarball and replace your whole entry with what it
+prints, rather than editing three fields: a new version can change the settings summary and the
+capabilities too, and regenerating is the only way those stay in step. Bump `generatedAt`. Leave the old release in place: an operator who already installed
 1.0.0 keeps working from it.
 
 An operator updates by extracting the new tarball over the installed directory and restarting,
