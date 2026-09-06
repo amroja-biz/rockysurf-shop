@@ -1,32 +1,5 @@
 {
   "version": 1,
   "generatedAt": "2026-09-06T00:00:00.000Z",
-  "providers": [
-    {
-      "providerId": "digitalocean",
-      "name": "DigitalOcean",
-      "description": "DigitalOcean droplets, driven with a personal access token — one cloud firewall it owns, cloud-init host keys, and a powered-off droplet that keeps billing at the full rate.",
-      "version": "0.1.0",
-      "package": "@rockysurf/provider-digitalocean",
-      "tarball": "https://github.com/amroja-biz/rockysurf/releases/download/provider-digitalocean-v0.1.0-uat375/rockysurf-provider-digitalocean-0.1.0.tgz",
-      "sha256": "7c146a16260e6d29e9efc85ef9b53fcaed95f6951b77fd58ac944a45e00037ee",
-      "settings": [
-        { "name": "token", "label": "Token Environment Variable", "kind": "secret" },
-        { "name": "region", "label": "Region", "kind": "string" },
-        { "name": "image", "label": "Base image", "kind": "string" },
-        { "name": "sshAllowedCidr", "label": "SSH allowed from", "kind": "sshCidrList" },
-        { "name": "firewallName", "label": "Firewall name", "kind": "string" },
-        { "name": "vpcUuid", "label": "VPC", "kind": "string" }
-      ],
-      "capabilities": {
-        "stop": true,
-        "ipStableAcrossStop": true,
-        "canInjectHostKeys": true,
-        "generatesUserData": true,
-        "userDataMaxBytes": 65536,
-        "managesSshAccess": true,
-        "billsWhileStopped": true
-      }
-    }
-  ]
+  "providers": []
 }
