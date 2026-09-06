@@ -6,7 +6,7 @@
   </picture>
 </p>
 
-Registry for [Rocky Surf](https://github.com/amroja-biz/rockysurf) **Surge Packs** and **Providers** created by community members. This shop is visible within Rocky Surf.
+Registry for [Rocky Surf](https://github.com/amroja-biz/rockysurf) **Surge Packs** and **Providers** created by community members. Surge Packs are browsed and installed from inside Rocky Surf; providers are installed from the command line, following this page.
 
 ## A Note On Security
 
@@ -121,7 +121,7 @@ terminates a machine there. Five ship inside Rocky Surf (AWS, Azure, GCP, Hetzne
 bring-your-own); anyone can write another against the published provider SDK, and this registry is
 how one reaches other people's installations.
 
-As with Surge Packs, there's a handy [add-provider]() agent skill to do this for you. 
+As with Surge Packs, there is an [add-provider](https://github.com/amroja-biz/rockysurf/tree/main/.agents/skills/add-provider) agent skill that walks an agent through writing one.
 
 Community-contributed Providers are listed in [`providers.json`](providers.json). Each entry names
 the package, the tarball and its `sha256`, the settings the provider will ask you for, and its
@@ -181,11 +181,14 @@ For contributors:
 - **The artifact must be self-contained.** The install is `tar -xzf` and nothing else, so nothing
   resolves a dependency for the operator — a package whose `dependencies` are not already on their
   machine simply fails to import at their next start. Declare none, or bundle your imports.
-- **The `sha256` is checked**, by this repository's CI and again by the Rocky Surf control plane. That means the sha256 needs 
-  to be updated whenever you publish a new version.
+- **The `sha256` is checked** by this repository's CI on every pull request, and by the operator
+  with `shasum` before they extract anything. A new version is a new tarball and a new digest.
 
-To submit a Provider to this shop, read [CONTRIBUTING.md](CONTRIBUTING.md#contributing-a-provider) and the authoring
-guide, [`docs/writing-a-provider.md`](https://github.com/amroja-biz/rockysurf/blob/main/docs/writing-a-provider.md).
+To submit a provider to this shop, follow the step-by-step procedure in
+[CONTRIBUTING.md, "Contributing a provider"](CONTRIBUTING.md#contributing-a-provider): build and
+pack, attach the tarball to a GitHub release in your own repository, add one entry to
+`providers.json` here by pull request. The authoring contract for the code itself is
+[`docs/writing-a-provider.md`](https://github.com/amroja-biz/rockysurf/blob/main/docs/writing-a-provider.md).
 
 ## Discord
 
