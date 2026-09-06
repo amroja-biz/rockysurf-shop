@@ -205,37 +205,143 @@ not ready.
 
 ## Contributing a provider
 
-A provider is a different kind of contribution from a pack, and the difference is worth stating
-before the mechanics: a pack is a file describing scripts that run on a server the operator
-creates, and a provider is **a package that runs inside the operator's control plane**, with its
-database, its master key and every cloud credential in its environment. Rocky Surf says one
-sentence about that wherever a provider appears — *a provider runs with Rocky Surf's full access —
-install ones you trust* — and nothing in this repository can alter it.
+A provider is a different kind of contribution from a pack. A pack is a YAML file that describes
+scripts to run on a server the operator creates. A provider is **a package of code that runs
+inside the operator's Rocky Surf process**, with that process's database, master key and every
+cloud credential in its environment. Rocky Surf shows one sentence wherever a provider appears,
+*a provider runs with Rocky Surf's full access — install ones you trust*, and nothing in this
+repository changes that.
 
-What you contribute here is a **description**, not the code. The code is a tarball you publish
-somewhere else (npm, a GitHub release, any static host over `https`), and
-[`providers.json`](providers.json) points at it.
+This section is the complete procedure, from a built provider to a merged listing. It walks one
+path in full: the provider's source lives in a GitHub repository you own, the built tarball is
+attached to a GitHub release in that repository, and this repository's `providers.json` points
+at that release. Other hosting options are at the end.
 
-### Before you open the pull request
+### What you are actually submitting
 
-1. **Write and test the provider.** [`docs/writing-a-provider.md`](https://github.com/amroja-biz/rockysurf/blob/main/docs/writing-a-provider.md)
-   is the contract, and `@rockysurf/provider-conformance` is the acceptance suite — published so
-   you can actually run it rather than take the bar on trust.
-2. **Make the artifact self-contained.** The documented install is `tar -xzf` — no `npm`, no
-   lifecycle script, nothing resolving a dependency for you. Declare no runtime `dependencies`, or
-   bundle your imports; anything left over is an import that throws at the operator's next start.
-3. **Pack and hash it.**
-   ```bash
-   npm run build && npm pack
-   tar -tzf you-rockysurf-provider-mycloud-1.0.0.tgz   # is your built entry point in there?
-   shasum -a 256 you-rockysurf-provider-mycloud-1.0.0.tgz
-   ```
-4. **Publish it over `https`.** Plain `http` fails this repository's checks: the artifact and the
-   digest meant to catch a change to it would arrive over the same rewritable connection.
+Two things end up in two places:
 
-### The entry
+1. **The tarball** — the built package, produced by `npm pack`. It lives in **your** GitHub
+   repository, as a release asset. This repository never holds it.
+2. **The listing entry** — one JSON object in [`providers.json`](providers.json) in **this**
+   repository, added by a pull request. It names your package, the URL of the tarball, the
+   tarball's SHA-256 digest, the settings your provider asks for, and its capability answers.
 
-Add one object to the `providers` array in `providers.json`:
+An operator reads the entry, downloads the tarball from your release, checks the digest, extracts
+it under their data directory, names it in their config file and restarts. Nothing in Rocky Surf
+fetches the listing or installs the package; the install is the operator's own hands, following
+[Installing one](README.md#installing-one).
+
+### Prerequisites
+
+- A GitHub account and a **public** repository containing your provider's source. Rocky Surf
+  operators are being asked to run your code with full access; they need to be able to read it.
+- The [`gh` CLI](https://cli.github.com/) installed and logged in (`gh auth status`). Every step
+  below has a browser equivalent, noted where it differs.
+- Node 24 or newer, and a provider that builds and passes the acceptance suite,
+  `@rockysurf/provider-conformance`. The authoring contract is
+  [`docs/writing-a-provider.md`](https://github.com/amroja-biz/rockysurf/blob/main/docs/writing-a-provider.md);
+  the `add-provider` agent skill in the main repository's `.agents/skills/` walks an agent through
+  it.
+- Your `package.json` declares **no runtime `dependencies`**. The documented install is `tar -xzf`
+  and nothing else: no `npm install`, no lifecycle script, nothing resolves a dependency for the
+  operator. Anything your manifest lists under `dependencies` is an import that throws at their
+  next start. Bundle what you use into `dist/` instead. The worked example is
+  [`@rockysurf/provider-digitalocean`](https://github.com/amroja-biz/rockysurf/tree/main/packages/provider-digitalocean),
+  which compiles the SDK helpers it uses into its own output with `esbuild` and keeps the SDK as a
+  `devDependency`.
+
+The rest of this section uses a provider named `mycloud` in a repository `you/rockysurf-provider-mycloud`
+with a package name `@you/rockysurf-provider-mycloud` at version `1.0.0`. Substitute yours.
+
+### Step 1 — build, pack, and check the tarball
+
+In your provider's repository:
+
+```bash
+npm run build
+npm pack
+```
+
+`npm pack` writes `you-rockysurf-provider-mycloud-1.0.0.tgz` into the current directory (a scoped
+name has its `@` dropped and the `/` turned into `-`). Check it before going any further:
+
+```bash
+tar -tzf you-rockysurf-provider-mycloud-1.0.0.tgz
+```
+
+Every path is under `package/`. Confirm that the file your manifest's `exports` (or `main`) points
+at is in the list, normally `package/dist/index.js`. A tarball that carries `package.json` and no
+`dist/` is the most common way a publish goes wrong: Rocky Surf refuses it at the operator's next
+start with *is the package built?*
+
+Then confirm the manifest inside the tarball declares no runtime dependencies:
+
+```bash
+tar -xzOf you-rockysurf-provider-mycloud-1.0.0.tgz package/package.json | grep -A3 '"dependencies"'
+```
+
+No output is the right answer. Finally, take the digest; you will paste it into the listing:
+
+```bash
+shasum -a 256 you-rockysurf-provider-mycloud-1.0.0.tgz
+```
+
+### Step 2 — publish the tarball as a GitHub release
+
+A GitHub release is a tag in your repository with files attached to it. Each attached file gets a
+permanent `https://` download URL, which is what the listing needs.
+
+Commit everything, then create the tag and the release with the tarball attached:
+
+```bash
+git tag v1.0.0
+git push origin v1.0.0
+gh release create v1.0.0 ./you-rockysurf-provider-mycloud-1.0.0.tgz \
+  --title "@you/rockysurf-provider-mycloud 1.0.0" \
+  --notes "First release. Install per https://github.com/amroja-biz/rockysurf-shop#installing-one"
+```
+
+In the browser instead: open your repository, **Releases** → **Draft a new release**, choose or
+create the tag `v1.0.0`, attach the `.tgz` under **Attach binaries**, and **Publish release**.
+
+The download URL for an attached file always has this shape:
+
+```
+https://github.com/<owner>/<repo>/releases/download/<tag>/<file name>
+```
+
+so for this example it is:
+
+```
+https://github.com/you/rockysurf-provider-mycloud/releases/download/v1.0.0/you-rockysurf-provider-mycloud-1.0.0.tgz
+```
+
+Prove the URL serves the exact bytes you hashed. Download it the way an operator will and compare
+the digest with Step 1's:
+
+```bash
+curl -fLO https://github.com/you/rockysurf-provider-mycloud/releases/download/v1.0.0/you-rockysurf-provider-mycloud-1.0.0.tgz
+shasum -a 256 you-rockysurf-provider-mycloud-1.0.0.tgz
+```
+
+If the digests differ you attached a different file than you hashed; fix the release before
+touching the listing. Do not delete or re-upload a release asset after the listing is merged:
+operators compare the digest, and a changed file fails their install. A new version is a new tag
+(Step 5).
+
+### Step 3 — write the listing entry
+
+Fork this repository and clone your fork:
+
+```bash
+gh repo fork amroja-biz/rockysurf-shop --clone
+cd rockysurf-shop
+git checkout -b providers/mycloud
+```
+
+Add one object to the `providers` array in `providers.json`. Every value comes from a place you
+can look up; nothing is invented here:
 
 ```json
 {
@@ -244,8 +350,8 @@ Add one object to the `providers` array in `providers.json`:
   "description": "MyCloud compute, one API token, four regions.",
   "version": "1.0.0",
   "package": "@you/rockysurf-provider-mycloud",
-  "tarball": "https://registry.npmjs.org/@you/rockysurf-provider-mycloud/-/rockysurf-provider-mycloud-1.0.0.tgz",
-  "sha256": "…",
+  "tarball": "https://github.com/you/rockysurf-provider-mycloud/releases/download/v1.0.0/you-rockysurf-provider-mycloud-1.0.0.tgz",
+  "sha256": "the 64 hex characters from shasum in Step 1",
   "settings": [
     { "name": "token", "label": "API token variable", "kind": "secret" },
     { "name": "region", "label": "Region", "kind": "string" }
@@ -262,39 +368,87 @@ Add one object to the `providers` array in `providers.json`:
 }
 ```
 
-- `providerId` is the config-file section key an operator ends up with, and must equal your
-  factory's `id`. Lowercase letters, digits and hyphens.
-- `package` must equal your published manifest's `name`. It is what the operator writes on the
-  `package:` line, so a listing that disagrees with its own artifact points them at nothing.
-- `settings` is the summary an operator reads here before installing anything: names, labels, and
-  one of `string`, `number`, `boolean`, `secret`, `stringList`, `sshCidrList`. The panel they
-  actually fill in is built from what your factory declares, so keep the two in step.
-- `capabilities` are your factory's own answers, verbatim. `billsWhileStopped` in particular is
-  how somebody learns, before installing, that a stopped machine on your cloud still costs money.
-- There is **no** `trust`, `tier` or `verified` field, and adding one fails the check.
+| Field | Where its value comes from |
+|---|---|
+| `providerId` | Your factory's `id`. It becomes the operator's `providers.<id>:` config section key. Lowercase letters, digits and hyphens. |
+| `name`, `description` | Free text. One line each; the description is what an operator reads first. |
+| `version` | The `version` in your `package.json`, and the tag you released. |
+| `package` | The `name` in your `package.json`, exactly. The operator writes it on the `package:` line of their config, so a listing that disagrees with its own artifact points them at nothing. |
+| `tarball` | The release download URL from Step 2. It must be `https`. |
+| `sha256` | The digest from Step 1, lowercase hex, 64 characters. |
+| `settings` | One object per field in your factory's `settings.fields`, with only `name`, `label` and `kind` copied over. `kind` is one of `string`, `number`, `boolean`, `secret`, `stringList`, `sshCidrList`. Leave out `enabled`, `package` and `sizes`; every panel gets those. |
+| `capabilities` | Your factory's `capabilities` object, verbatim. `stop`, `ipStableAcrossStop`, `canInjectHostKeys`, `generatesUserData` and `userDataMaxBytes` are required; `managesSshAccess`, `billsWhileStopped` and `simulatedInstances` are included when your factory sets them. `billsWhileStopped` is how somebody learns, before installing, that a stopped machine on your cloud still costs money. |
 
-Also bump `generatedAt` to the day you edited the file. Then run the validator, which is what CI
-runs:
+Do not add any other field. There is no `trust`, `tier` or `verified`: a registry never publishes a
+trust label, and the validator rejects one.
+
+Set `generatedAt` at the top of the file to today's date, in the same ISO-8601 form it already has.
+
+Run the validator. It is the first thing CI runs and it needs no install:
 
 ```bash
 node scripts/validate-providers.mjs providers.json
 ```
 
-CI additionally downloads every tarball the listing names and compares its digest, so a stale
-`sha256` is caught here rather than by an operator.
+It prints `providers.json: N provider entries, all valid` or lists every problem with the field it
+is in.
 
-### Publishing a new version
+### Step 4 — open the pull request
 
-Bump `version`, publish the new tarball, update `sha256`, and open a pull request. An operator
-updates by unpacking the new tarball over the installed directory and restarting, which does not
-delete anything — so say in your release notes if a file has moved or gone.
+```bash
+git add providers.json
+git commit -m "providers: add mycloud 1.0.0"
+git push -u origin providers/mycloud
+gh pr create --repo amroja-biz/rockysurf-shop --base main \
+  --title "providers: add mycloud 1.0.0" \
+  --body "Source: https://github.com/you/rockysurf-provider-mycloud. Conformance suite passes at <commit>."
+```
 
-### What the checks do not prove — again, and more so
+Put the link to your source repository in the pull request body. A reviewer will read the code,
+because reading it is the only review a provider gets; the validator checks the shape of a
+description and can say nothing about what the description points at.
 
-The validator checks the shape of a description. It says nothing about the code the description
-points at, and it cannot: that code runs with an operator's full access. Review here is a person
-reading your repository, and the control that matters most is the operator's own decision — made
-deliberately, at their own command line, with that one sentence in front of them.
+CI runs the `provider listing` workflow on the pull request. It runs the validator, then downloads
+every tarball named in `providers.json` and compares its digest with the `sha256` beside it. A
+stale digest is therefore caught here, in your pull request, rather than by an operator.
+
+When a maintainer merges, your entry is live. There is no build and no index step for providers:
+the README's [Providers](README.md#providers) section points operators at `providers.json`, and
+they take the `package`, `tarball` and `sha256` from your entry and follow
+[Installing one](README.md#installing-one).
+
+### Step 5 — publishing a new version
+
+Repeat Steps 1 and 2 with the new version number and a new tag (`v1.1.0`, a new release, the new
+tarball attached). Then a pull request that changes `version`, `tarball` and `sha256` in your
+entry, and bumps `generatedAt`. Leave the old release in place: an operator who already installed
+1.0.0 keeps working from it.
+
+An operator updates by extracting the new tarball over the installed directory and restarting,
+which deletes nothing. Say in your release notes if a file has moved or gone.
+
+### Other places to host the tarball
+
+The listing needs a URL that serves the exact bytes you hashed, over `https`, indefinitely.
+Anything that does is acceptable. The two other common choices:
+
+- **npm.** Publish the package (`npm publish --access public` under a scope you own). The
+  registry serves the tarball at
+  `https://registry.npmjs.org/@you/rockysurf-provider-mycloud/-/rockysurf-provider-mycloud-1.0.0.tgz`
+  (scope in the first path segment, no scope in the file name). Download it and hash it exactly as
+  in Step 2; the digest is of the bytes the registry serves, not of your local `npm pack`
+  output, and those are usually but not always identical.
+- **Any static host** you control that serves the file over `https` with a stable URL. Plain
+  `http` fails the validator: the artifact and the digest meant to catch a change to it would
+  travel over the same rewritable connection.
+
+### What the checks do not prove
+
+The validator checks the shape of a description. The digest check proves the tarball at the URL
+is the one you described. Neither says anything about what the code does when it runs, and
+nothing here can: that code runs with an operator's full access. Review is a person reading your
+repository, and the control that matters most is the operator's own decision, made at their own
+command line with that one sentence in front of them.
 
 ## License
 
