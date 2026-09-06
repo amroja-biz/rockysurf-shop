@@ -222,6 +222,14 @@ path in full: the provider's source lives in a GitHub repository you own, the bu
 attached to a GitHub release in that repository, and this repository's `providers.json` points
 at that release. Other hosting options are at the end.
 
+If your provider was written with an agent, the
+[`contribute-provider`](https://github.com/amroja-biz/rockysurf/tree/main/.agents/skills/contribute-provider)
+skill in the main repository automates every step below: it packs, checks the tarball, creates the
+release, downloads the asset back to compare the digest, generates the listing entry from the
+artifact rather than transcribing it, and opens the pull request. It refuses to open one for a
+package that declares runtime dependencies or a release whose asset does not match the digest it
+published. This section stays the contract; the skill follows it.
+
 ### What you are actually submitting
 
 Two things end up in two places:
@@ -297,6 +305,8 @@ permanent `https://` download URL, which is what the listing needs.
 Commit everything, then create the tag and the release with the tarball attached:
 
 ```bash
+# In a repository that holds only this provider. In a monorepo, use a package-scoped tag such
+# as provider-mycloud-v1.0.0 on all three lines, so a bare version tag stays free for the repo.
 git tag v1.0.0
 git push origin v1.0.0
 gh release create v1.0.0 ./you-rockysurf-provider-mycloud-1.0.0.tgz \
