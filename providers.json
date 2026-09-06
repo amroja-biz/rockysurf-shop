@@ -1,5 +1,56 @@
 {
   "version": 1,
   "generatedAt": "2026-09-06T00:00:00.000Z",
-  "providers": []
+  "providers": [
+    {
+      "providerId": "digitalocean",
+      "name": "DigitalOcean",
+      "description": "DigitalOcean droplets over the public REST API — one personal access token, a cloud firewall it keeps in step with your SSH allow-list, and no runtime dependencies.",
+      "version": "0.1.0",
+      "package": "@rockysurf/provider-digitalocean",
+      "tarball": "https://github.com/amroja-biz/rockysurf/releases/download/provider-digitalocean-v0.1.0/rockysurf-provider-digitalocean-0.1.0.tgz",
+      "sha256": "227011c38b5a4033cfafbf7797692d763ba81c25ef5e6141f90d03705236723d",
+      "settings": [
+        {
+          "name": "token",
+          "label": "Token Environment Variable",
+          "kind": "secret"
+        },
+        {
+          "name": "region",
+          "label": "Region",
+          "kind": "string"
+        },
+        {
+          "name": "image",
+          "label": "Base image",
+          "kind": "string"
+        },
+        {
+          "name": "sshAllowedCidr",
+          "label": "SSH allowed from",
+          "kind": "sshCidrList"
+        },
+        {
+          "name": "firewallName",
+          "label": "Firewall name",
+          "kind": "string"
+        },
+        {
+          "name": "vpcUuid",
+          "label": "VPC",
+          "kind": "string"
+        }
+      ],
+      "capabilities": {
+        "stop": true,
+        "ipStableAcrossStop": true,
+        "canInjectHostKeys": true,
+        "generatesUserData": true,
+        "userDataMaxBytes": 65536,
+        "managesSshAccess": true,
+        "billsWhileStopped": true
+      }
+    }
+  ]
 }
